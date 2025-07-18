@@ -1,8 +1,8 @@
 import os
 import json
-from fhir.resources.observation import Observation
-from fhir.resources.bundle import Bundle
+from collections import defaultdict
 from typing import List, Dict, Any
+from fhir.resources.observation import Observation
 
 
 def load_fhir_observations_from_bundle(bundle_path: str) -> List[Observation]:
@@ -54,3 +54,35 @@ def load_fhir_observations_from_dir(input_dir: str):
                                     except Exception as e:
                                         print(f"Failed to parse entry in {fpath}: {e}")
     return observations 
+
+
+def load_fhir_resources_by_type(fhir_dir):
+    """
+    Recursively load all FHIR resources by type from a directory.
+    Returns a dict: {resourceType: [resource_dict, ...]}
+    """
+    resources = defaultdict(list)
+    for root, dirs, files in os.walk(fhir_dir):
+        for fname in files:
+            if fname.endswith('.ndjson') or fname.endswith('.json'):
+                fpath = os.path.join(root, fname)
+                with open(fpath) as f:
+                    for line in f:
+                        if not line.strip():
+                            continue
+                        try:
+                            data = json.loads(line)
+                        except Exception as e:
+                            print(f"Failed to parse line in {fpath}: {e}")
+                            continue
+                        rtype = data.get("resourceType")
+                        if rtype:
+                            resources[rtype].append(data)
+    return resources
+
+def get_sample_resources_by_type(fhir_dir, n=3):
+    """
+    Return up to n samples for each resource type found in the directory.
+    """
+    all_resources = load_fhir_resources_by_type(fhir_dir)
+    return {rtype: resources[:n] for rtype, resources in all_resources.items()} 

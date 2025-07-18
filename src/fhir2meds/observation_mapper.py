@@ -58,10 +58,13 @@ def observation_to_meds_event(obs: Observation, uuid_to_int: dict) -> Dict[str, 
             code = f"{vocab}//{coding.code}"
         else:
             code = coding.code
-    # Extract numeric value
+    # Extract numeric value and ensure it's a float
     numeric_value = getattr(obs, "valueQuantity", None)
     if numeric_value:
-        numeric_value = numeric_value.value
+        try:
+            numeric_value = float(numeric_value.value)
+        except Exception:
+            numeric_value = None
     # Extract text value
     text_value = getattr(obs, "valueString", None)
     if not text_value and getattr(obs, "valueCodeableConcept", None):
