@@ -90,3 +90,4 @@ venv/
 # Other
 *.parquet
 example_output/ 
+mimic-fhir/ 
