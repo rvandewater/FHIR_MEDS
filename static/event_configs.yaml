@@ -1,0 +1,6 @@
+observation:
+  subject_id: subject.reference
+  time: effectiveDateTime | effectivePeriod
+  code: code.coding[0].code
+  numeric_value: valueQuantity.value
+  text_value: valueString | valueCodeableConcept.text 

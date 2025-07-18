@@ -1,0 +1,17 @@
+[project]
+name = "fhir2meds"
+version = "0.1.0"
+description = "Convert HL7 FHIR (v4/v5) Observation resources to MEDS sharded Parquet format."
+authors = [ { name = "Your Name", email = "your@email.com" } ]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "fhir.resources>=6.3.0",
+    "pyarrow>=12.0.0",
+    "polars>=1.20.0",
+    "pyyaml>=6.0",
+    "meds~=0.4.0"
+]
+
+[project.scripts]
+fhir2meds = "fhir2meds.cli:main" 

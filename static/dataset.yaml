@@ -1,0 +1,5 @@
+dataset_name: MIMIC-IV FHIR Demo
+raw_dataset_version: 2.0
+urls:
+  dataset:
+    - url: https://physionet.org/content/mimic-iv-fhir-demo/2.0/ 
