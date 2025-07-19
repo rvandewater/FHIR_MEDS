@@ -6,7 +6,6 @@ from typing import List, Dict, Any
 import polars as pl
 from meds import DataSchema
 from concurrent.futures import ThreadPoolExecutor
-import re
 import pyarrow as pa
 
 def robust_cast_time_column(pl_df):
@@ -77,7 +76,8 @@ def cast_arrow_code_to_string(arrow_table):
     return arrow_table.cast(new_schema)
 
 def build_patient_id_map(patient_dir):
-    import os, json
+    import os
+    import json
     uuid_to_int = {}
     for fname in os.listdir(patient_dir):
         if fname.endswith(".json") or fname.endswith(".ndjson"):
@@ -147,7 +147,6 @@ def write_single_shard(shard, required_cols, output_dir, shard_idx, verbose=Fals
 
 def write_meds_sharded_parquet(events: List[Dict[str, Any]], output_dir: str, shard_size: int = 10000, max_workers: int = 4, verbose: bool = False):
     os.makedirs(output_dir, exist_ok=True)
-    from meds import DataSchema
     required_cols = list(DataSchema.schema().names)
     n = len(events)
     shards = [(events[i:i+shard_size], required_cols, output_dir, i//shard_size, verbose) for i in range(0, n, shard_size)]

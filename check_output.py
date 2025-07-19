@@ -1,6 +1,5 @@
 import os
 import pyarrow.parquet as pq
-import pandas as pd
 
 def inspect_parquet_dir(parquet_dir, n=5):
     for root, dirs, files in os.walk(parquet_dir):

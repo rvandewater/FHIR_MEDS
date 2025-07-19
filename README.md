@@ -6,7 +6,8 @@
   </picture>
 </p>
 
-# MEDS on FHIR
+MEDS on FHIR
+---
 
 [![PyPI - Version](https://img.shields.io/pypi/v/fhir2meds)](https://pypi.org/project/fhir2meds/)
 [![Documentation Status](https://readthedocs.org/projects/fhir2meds/badge/?version=latest)](https://fhir2meds.readthedocs.io/en/stable/?badge=stable)
@@ -18,14 +19,12 @@
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/rvandewater/FHIR_MEDS/pulls)
 [![contributors](https://img.shields.io/github/contributors/rvandewater/FHIR_MEDS.svg)](https://github.com/rvandewater/FHIR_MEDS/graphs/contributors)
 
----
 
 ## Overview
 
 **MEDS on FHIR** is a Python package for converting HL7 FHIR (v4/v5) resources into the [MEDS](https://github.com/Medical-Event-Data-Standard/meds) sharded Parquet 
 format. It supports scalable, schema-validated event extraction and is designed for research and interoperability projects.
 This project is in its early stages and has been tested mainly with the MIMIC-IV FHIR demo.
----
 
 ## Features
 - Parses and processes all FHIR resource types (v4/v5)

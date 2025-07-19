@@ -57,7 +57,6 @@ def generic_fhir_to_meds_event(resource, uuid_to_int):
     code = None
     if "code" in resource and resource["code"].get("coding"):
         coding = resource["code"]["coding"][0]
-        system = None
         vocab = None
         if "system" in coding and coding["system"]:
             if "loinc" in coding["system"].lower():

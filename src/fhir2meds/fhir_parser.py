@@ -7,7 +7,7 @@ Loads all FHIR resources by type from a directory, and provides utilities for fi
 import os
 import json
 from collections import defaultdict
-from typing import List, Dict, Any
+from typing import List, Dict
 import logging
 
 def load_fhir_resources_by_type(fhir_dir: str) -> Dict[str, List[dict]]:

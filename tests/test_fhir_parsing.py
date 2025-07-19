@@ -1,9 +1,5 @@
-import os
 import pytest
-import json
-import sys
 from fhir2meds.fhir_parser import get_sample_resources_by_type
-from typing import List, Dict, Any
 
 FHIR_DIR = "mimic-fhir"
 
