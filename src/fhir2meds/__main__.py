@@ -1,10 +1,11 @@
 import argparse
 import os
 import json
-from fhir2meds.fhir_parser import load_fhir_resources_by_type, filter_subject_resources_by_type
-from fhir2meds.meds_writer import write_meds_sharded_parquet
-from fhir2meds.metadata_writer import write_dataset_metadata, write_codes_metadata, write_subject_splits
-
+import shutil
+from .fhir_parser import load_fhir_resources_by_type, filter_subject_resources_by_type
+from .meds_writer import write_meds_sharded_parquet
+from .metadata_writer import write_dataset_metadata, write_codes_metadata, write_subject_splits
+import shutil
 def build_patient_id_map(patient_ndjson_path):
     uuid_to_int = {}
     with open(patient_ndjson_path) as f:
@@ -112,6 +113,7 @@ def main():
     parser.add_argument("--shard_size", type=int, default=10000, help="Number of rows per Parquet shard.")
     parser.add_argument("--max_events", type=int, default=None, help="Maximum number of events to process per resource type (for debugging).")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging.")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing output directory.")
     args = parser.parse_args()
 
     if args.verbose:
@@ -120,6 +122,11 @@ def main():
     subject_resources = filter_subject_resources_by_type(all_resources)
     if args.verbose:
         print(f"Loaded subject-associated resources for types: {list(subject_resources.keys())}")
+
+    if args.overwrite:
+        print("Overwriting existing output directory...")
+        shutil.rmtree(args.output_dir)
+        os.makedirs(args.output_dir)
 
     # Build patient UUID to int map
     patient_ndjson_path = os.path.join(args.input_dir, "Patient.ndjson")
@@ -161,4 +168,7 @@ def main():
     )
     write_codes_metadata(args.output_dir, all_events)
     write_subject_splits(args.output_dir, all_events)
-    print("Done writing MEDS metadata.") 
+    print("Done writing MEDS metadata.")
+
+if __name__ == "__main__":
+    main()
