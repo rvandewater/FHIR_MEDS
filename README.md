@@ -1,4 +1,11 @@
-# fhir2meds
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="static/meds_on_fhir_logo_light.svg">
+    <source media="(prefers-color-scheme: light)" srcset="static/meds_on_fhir_logo_light.svg">
+    <img width="200" height="200" alt="MEDS Logo" src="static/meds_on_fhir_logo_light.svg">
+  </picture>
+</p>
+# MEDS on FHIR
 
 [![PyPI - Version](https://img.shields.io/pypi/v/fhir2meds)](https://pypi.org/project/fhir2meds/)
 [![Documentation Status](https://readthedocs.org/projects/fhir2meds/badge/?version=latest)](https://fhir2meds.readthedocs.io/en/stable/?badge=stable)
