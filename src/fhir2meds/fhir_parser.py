@@ -8,6 +8,7 @@ import os
 import json
 from collections import defaultdict
 from typing import List, Dict, Any
+import logging
 
 def load_fhir_resources_by_type(fhir_dir: str) -> Dict[str, List[dict]]:
     """
@@ -25,6 +26,7 @@ def load_fhir_resources_by_type(fhir_dir: str) -> Dict[str, List[dict]]:
         for fname in files:
             if fname.endswith('.ndjson') or fname.endswith('.json'):
                 fpath = os.path.join(root, fname)
+                logging.info(f"Parsing file {fpath}")
                 with open(fpath) as f:
                     for line in f:
                         if not line.strip():
@@ -73,7 +75,7 @@ def filter_subject_resources_by_type(resources_by_type: Dict[str, List[dict]]) -
         subject_resources = [res for res in resources if is_subject_associated(res)]
         skipped = len(resources) - len(subject_resources)
         if skipped > 0:
-            print(f"Skipped {skipped} of {len(resources)} {rtype} resources (not associated with a subject)")
+            logging.info(f"Skipped {skipped} of {len(resources)} {rtype} resources (not associated with a subject)")
         filtered[rtype] = subject_resources
     return filtered
 

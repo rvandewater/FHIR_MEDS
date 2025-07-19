@@ -6,6 +6,8 @@ from .fhir_parser import load_fhir_resources_by_type, filter_subject_resources_b
 from .meds_writer import write_meds_sharded_parquet
 from .metadata_writer import write_dataset_metadata, write_codes_metadata, write_subject_splits
 import shutil
+import logging
+
 def build_patient_id_map(patient_ndjson_path):
     uuid_to_int = {}
     with open(patient_ndjson_path) as f:
@@ -115,7 +117,7 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing output directory.")
     args = parser.parse_args()
-
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
     if args.verbose:
         print(f"Loading FHIR resources from {args.input_dir}...")
     all_resources = load_fhir_resources_by_type(args.input_dir)

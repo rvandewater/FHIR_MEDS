@@ -103,6 +103,7 @@ def safe_str(val):
         return val.isoformat()
     return str(val) 
 
+
 def write_single_shard(shard, required_cols, output_dir, shard_idx, verbose=False):
     try:
         data_dir = os.path.join(output_dir, "data")
@@ -110,7 +111,9 @@ def write_single_shard(shard, required_cols, output_dir, shard_idx, verbose=Fals
         os.makedirs(data_dir, exist_ok=True)
         if verbose:
             print(f"Writing shard {shard_idx} with {len(shard)} events to {data_dir}")
-        pl_df = pl.DataFrame(shard, infer_schema_length=100)
+        if shard_idx ==1:
+            print(f"Shard {shard_idx} has {len(shard)} events.")
+        pl_df = pl.DataFrame(shard, infer_schema_length=10000)
         if shard_idx == 1:
             print(f"shard test: {shard_idx}")
             print(f"time {shard_idx}: {pl_df['time'].is_null().sum()}")
