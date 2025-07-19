@@ -5,6 +5,7 @@
     <img width="200" height="200" alt="MEDS Logo" src="static/meds_on_fhir_logo_light.svg">
   </picture>
 </p>
+
 # MEDS on FHIR
 
 [![PyPI - Version](https://img.shields.io/pypi/v/fhir2meds)](https://pypi.org/project/fhir2meds/)
@@ -21,7 +22,7 @@
 
 ## Overview
 
-**fhir2meds** is a Python package for converting HL7 FHIR (v4/v5) resources—especially from the MIMIC-IV FHIR demo—into the [MEDS](https://github.com/Medical-Event-Data-Standard/meds) sharded Parquet format. It supports scalable, schema-validated event extraction and is designed for research and interoperability projects.
+**MEDS on FHIR** is a Python package for converting HL7 FHIR (v4/v5) resources—especially from the MIMIC-IV FHIR demo—into the [MEDS](https://github.com/Medical-Event-Data-Standard/meds) sharded Parquet format. It supports scalable, schema-validated event extraction and is designed for research and interoperability projects.
 
 ---
 
