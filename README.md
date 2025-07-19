@@ -22,8 +22,9 @@
 
 ## Overview
 
-**MEDS on FHIR** is a Python package for converting HL7 FHIR (v4/v5) resources—especially from the MIMIC-IV FHIR demo—into the [MEDS](https://github.com/Medical-Event-Data-Standard/meds) sharded Parquet format. It supports scalable, schema-validated event extraction and is designed for research and interoperability projects.
-
+**MEDS on FHIR** is a Python package for converting HL7 FHIR (v4/v5) resources into the [MEDS](https://github.com/Medical-Event-Data-Standard/meds) sharded Parquet 
+format. It supports scalable, schema-validated event extraction and is designed for research and interoperability projects.
+This project is in its early stages and has been tested mainly with the MIMIC-IV FHIR demo.
 ---
 
 ## Features
@@ -56,6 +57,8 @@ fhir2meds --input_dir path/to/mimic-fhir --output_dir path/to/meds_output --max_
 - `--input_dir`: Directory containing FHIR .ndjson/.json files (e.g., MIMIC-IV FHIR demo)
 - `--output_dir`: Output directory for MEDS Parquet shards
 - `--max_observations`: (Optional) Limit number of observations for debugging
+- `--overwrite`: (Optional) Overwrite existing output directory
+- `--do_download`: (Optional) Download MIMIC-IV FHIR demo dataset automatically (TODO)
 
 ---
 
@@ -86,19 +89,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Contributing
 
 Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change. 
-
-from fhir2meds.metadata_writer import write_dataset_metadata, write_codes_metadata, write_subject_splits
-
-write_dataset_metadata(
-    output_dir=args.output_dir,
-    dataset_name="MIMIC-IV FHIR Demo",
-    dataset_version="2.0",
-    etl_name="fhir2meds",
-    etl_version="0.1.0",
-    meds_version="0.4.0",
-    license="MIT",
-    location_uri=args.output_dir,
-    description_uri=None,
-)
-write_codes_metadata(args.output_dir, all_events)
-write_subject_splits(args.output_dir, all_events) 
