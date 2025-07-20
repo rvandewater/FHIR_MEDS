@@ -3,7 +3,7 @@ import json
 import datetime
 import pyarrow as pa
 import pyarrow.parquet as pq
-
+import logging
 
 def write_dataset_metadata(
     output_dir,
@@ -41,6 +41,15 @@ def write_dataset_metadata(
         "site_id_columns": site_id_columns,
         "other_extension_columns": other_extension_columns,
     }
+    for key, value in metadata.items():
+        if not isinstance(value, str) or isinstance(value, dict) or isinstance(value, list):
+            try:
+                metadata[key] = str(value)
+            except:
+                logging.warning(f"Failed to convert {key} to string: {e}")
+                metadata[key] = None
+
+    output_dir = str(output_dir)
     os.makedirs(os.path.join(output_dir, "metadata"), exist_ok=True)
     with open(os.path.join(output_dir, "metadata", "dataset.json"), "w") as f:
         json.dump(metadata, f, indent=2)

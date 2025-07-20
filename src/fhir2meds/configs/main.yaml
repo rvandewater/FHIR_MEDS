@@ -1,0 +1,29 @@
+defaults:
+  - _self_
+
+root_output_dir: ???
+tables_to_ignore: null
+
+raw_input_dir: ${root_output_dir}/raw_input
+#pre_MEDS_dir: ${root_output_dir}/pre_MEDS
+MEDS_cohort_dir: ${root_output_dir}/MEDS_cohort
+
+stage_runner_fp: null
+
+do_download: False
+do_overwrite: False
+do_demo: False
+shard_size: 10000  # Number of rows per Parquet shard
+max_events: null  # Maximum number of events to process per resource type (for debugging)
+verbose: false  # Enable verbose logging
+overwrite: false  # Overwrite existing output directory
+log_dir: ${root_output_dir}/.logs
+
+# Hydra
+hydra:
+  job:
+    name: full_extraction_${now:%Y-%m-%d_%H-%M-%S}
+  run:
+    dir: ${log_dir}
+  sweep:
+    dir: ${log_dir}

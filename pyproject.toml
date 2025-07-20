@@ -2,7 +2,7 @@
 name = "fhir2meds"
 version = "0.1.0"
 description = "Convert HL7 FHIR (v4/v5) Observation resources to MEDS sharded Parquet format."
-authors = [ { name = "Your Name", email = "your@email.com" } ]
+authors = [ { name = "Robin P. van de Water", email = "robin.vandewater@hpi.de" } ]
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
@@ -10,7 +10,10 @@ dependencies = [
     "pyarrow>=12.0.0",
     "polars>=1.20.0",
     "pyyaml>=6.0",
-    "meds~=0.4.0"
+    "meds~=0.4.0",
+    "requests",
+    "beautifulsoup4",
+    "hydra-core"
 ]
 
 [project.scripts]

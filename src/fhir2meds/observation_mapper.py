@@ -35,7 +35,7 @@
 #                         print(f"Failed to parse {fpath}: {e}")
 #                 # If this is a Bundle, extract Observations from entries
 #                 elif data.get("resourceType") == "Bundle":
-#                     for entry in data.get("entry", []):
+#                     for entry in data.get("entry", [])
 #                         resource = entry.get("resource", {})
 #                         if resource.get("resourceType") == "Observation":
 #                             try:

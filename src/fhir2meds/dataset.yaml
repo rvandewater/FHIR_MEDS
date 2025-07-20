@@ -1,0 +1,10 @@
+dataset_name: ${oc.decode:${oc.env:DATASET_NAME, "MIMIC_IV_FHIR_DEMO"}}
+raw_dataset_version: ${oc.decode:${oc.env:RAW_DATASET_VERSION, "2.0"}}
+omop_version: ${oc.decode:${oc.env:FHIR_VERSION, "R4"}}
+
+# MIMIC-IV-FHIR demo data repository
+urls:
+  dataset:
+    - https://physionet.org/files/mimic-iv-fhir-demo/${raw_dataset_version}/mimic-fhir/
+  demo:
+    - https://physionet.org/files/mimic-iv-fhir-demo/${raw_dataset_version}/mimic-fhir/
