@@ -76,7 +76,8 @@ PYTHONPATH=src pytest tests/
 - [MIMIC-IV FHIR Demo](https://physionet.org/content/mimic-iv-fhir-demo/2.0/)
 - [MEDS Format & Schema](https://github.com/Medical-Event-Data-Standard/meds)
 - [ETL_MEDS_Template](https://github.com/Medical-Event-Data-Standard/ETL_MEDS_Template)
-
+R4 Resource List:
+https://hl7.org/fhir/R4/resourcelist.html
 ---
 
 ## License

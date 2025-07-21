@@ -4,8 +4,8 @@ from pathlib import Path
 
 from omegaconf import DictConfig
 
-from fhir2meds.event_conversion import build_patient_id_map, generic_fhir_to_meds_event
-from .fhir_parser import load_fhir_resources_by_type, filter_subject_resources_by_type
+from .event_conversion import build_patient_id_map, build_event
+from .fhir_parser import load_fhir_resources_by_type, filter_subject_resources_by_type, load_event_config
 from .meds_writer import write_meds_sharded_parquet
 from .metadata_writer import write_dataset_metadata, write_codes_metadata, write_subject_splits
 import shutil
@@ -13,7 +13,14 @@ import logging
 from . import MAIN_CFG, dataset_info
 import hydra
 from .download import download_data
-@hydra.main(version_base=None, config_path=str(MAIN_CFG.parent), config_name=MAIN_CFG.stem)
+import polars as pl
+# Fix MAIN_CFG for hydra.main
+import os
+MAIN_CFG_PATH = str(MAIN_CFG)
+MAIN_CFG_PARENT = os.path.dirname(MAIN_CFG_PATH)
+MAIN_CFG_STEM = os.path.splitext(os.path.basename(MAIN_CFG_PATH))[0]
+
+@hydra.main(version_base=None, config_path=MAIN_CFG_PARENT, config_name=MAIN_CFG_STEM)
 def main(cfg: DictConfig) -> None:
     # parser = argparse.ArgumentParser(description="Convert all subject-associated FHIR resources to MEDS Parquet format.")
     # parser.add_argument("--input_dir", required=True, help="Directory with FHIR .json/.ndjson files.")
@@ -45,16 +52,23 @@ def main(cfg: DictConfig) -> None:
     if cfg.do_download:  # pragma: no cover
         if cfg.get("do_demo", False):
             logging.info("Downloading demo data.")
-            download_data(raw_input_dir, dataset_info, do_demo=True)
+            if isinstance(dataset_info, DictConfig):
+                download_data(raw_input_dir, dataset_info, do_demo=True)
         else:
             logging.info("Downloading data.")
-            download_data(raw_input_dir, dataset_info)
+            if isinstance(dataset_info, DictConfig):
+                download_data(raw_input_dir, dataset_info)
     else:  # pragma: no cover
         logging.info("Skipping data download.")
 
+    # Load event config for the selected FHIR version
+    fhir_version = cfg.get("fhir_version", "R4")
+    event_config = load_event_config(fhir_version=fhir_version)
+
     if verbose:
         print(f"Loading FHIR resources from {raw_input_dir}...")
-    all_resources = load_fhir_resources_by_type(raw_input_dir)
+    # Fix Path to str for function arguments
+    all_resources = load_fhir_resources_by_type(str(raw_input_dir), event_config, fhir_version)
     subject_resources = filter_subject_resources_by_type(all_resources)
     if verbose:
         print(f"Loaded subject-associated resources for types: {list(subject_resources.keys())}")
@@ -69,7 +83,7 @@ def main(cfg: DictConfig) -> None:
     uuid_to_int = build_patient_id_map(patient_ndjson_path)
     if verbose:
         print(f"Loaded {len(uuid_to_int)} patient UUID to integer ID mappings.")
-
+    pl.DataFrame(uuid_to_int).unpivot().write_csv(root_output_dir / "uuid_to_int.csv")
     all_events = []
     for rtype, resources in subject_resources.items():
         if verbose:
@@ -78,21 +92,24 @@ def main(cfg: DictConfig) -> None:
             if verbose:
                 print(f"Limiting to first {max_events} {rtype} resources for debugging.")
             resources = resources[:max_events]
-        mapped_events = [generic_fhir_to_meds_event(res, uuid_to_int) for res in resources]
-        events = [e for e in mapped_events if e is not None]
+        mapped_events = [build_event(res, event_config.get(rtype, event_config['default']), uuid_to_int, event_config["default"]) for res in resources]
+        # Filter out events with missing subject_id
+        events = [e for e in mapped_events if e.get("subject_id") not in (None, "", "null")]
         filtered_out = len(mapped_events) - len(events)
         if verbose:
             print(f"Mapped {len(events)} events from {rtype}. Filtered out {filtered_out} events due to missing subject_id or other issues.")
+            if filtered_out > 0:
+                print(f"Example filtered event: {mapped_events[0] if mapped_events else 'None'}")
         all_events.extend(events)
 
     print(f"Writing {len(all_events)} MEDS events to {root_output_dir}...")
-    write_meds_sharded_parquet(all_events, root_output_dir, shard_size=shard_size, verbose=verbose)
+    write_meds_sharded_parquet(all_events, str(root_output_dir), shard_size=shard_size, verbose=verbose)
     print("Done writing MEDS event data.")
 
     # Write MEDS metadata files
     print("Writing MEDS metadata files...")
     write_dataset_metadata(
-        output_dir=root_output_dir,
+        output_dir=str(root_output_dir),
         dataset_name="MIMIC-IV FHIR Demo",
         dataset_version="2.0",
         etl_name="fhir2meds",
@@ -102,8 +119,8 @@ def main(cfg: DictConfig) -> None:
         location_uri=root_output_dir,
         description_uri=None,
     )
-    write_codes_metadata(root_output_dir, all_events)
-    write_subject_splits(root_output_dir, all_events)
+    write_codes_metadata(str(root_output_dir), all_events)
+    write_subject_splits(str(root_output_dir), all_events)
     print("Done writing MEDS metadata.")
 
 if __name__ == "__main__":

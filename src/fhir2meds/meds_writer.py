@@ -1,6 +1,5 @@
 import os
 import traceback
-
 import pyarrow.parquet as pq
 from typing import List, Dict, Any
 import polars as pl
@@ -11,7 +10,7 @@ import pyarrow as pa
 def robust_cast_time_column(pl_df):
     if "time" in pl_df.columns:
         # Remove trailing Z and timezone offset, then parse as naive datetime
-        print(pl_df.head(5))
+        # print(pl_df.head(5))
         pl_df = pl_df.with_columns(
             pl.when(pl.col("time").is_not_null())
             .then(

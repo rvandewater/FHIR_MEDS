@@ -1,4 +1,5 @@
 import json
+import re
 
 
 def build_patient_id_map(patient_ndjson_path):
@@ -29,82 +30,109 @@ def safe_str(val):
     return str(val)
 
 
-def generic_fhir_to_meds_event(resource, uuid_to_int):
+def extract_path(resource, path, column_name=None):
     """
-    Attempt to map any FHIR resource to a MEDS event dict.
-    Extracts subject_id, time, code, numeric_value, text_value if possible.
-    Returns None if subject_id cannot be resolved.
+    Resolve a dotted path like 'code.coding[0].code' on a FHIR resource object or dict.
     """
-    # TODO: check if proper parsing of resource, especially coding dict.
-    # subject_id
-    subject_id = None
-    if resource.get("resourceType") == "Patient":
-        # For Patient, subject_id is the integer patient ID
-        for ident in resource.get("identifier", []):
-            if ident.get("system", "").endswith("/identifier/patient"):
-                try:
-                    subject_id = int(ident["value"])
-                except Exception:
-                    pass
-    elif "subject" in resource and resource["subject"].get("reference", "").startswith("Patient/"):
-        patient_uuid = resource["subject"]["reference"].split("/")[-1]
-        subject_id = uuid_to_int.get(patient_uuid)
-    if subject_id is None:
-        return None
-    # time
-    time = resource.get("effectiveDateTime") or resource.get("performedDateTime") or resource.get("onsetDateTime") or resource.get("issued") or resource.get("authoredOn") or resource.get("dateRecorded") or resource.get("dateAsserted") or resource.get("recordedDate") or resource.get("occurrenceDateTime") or resource.get("start") or resource.get("end")
-    # code
-    code = None
-    if "code" in resource and resource["code"].get("coding"):
-        coding = resource["code"]["coding"][0]
-        vocab = None
-        if "system" in coding and coding["system"]:
-            if "loinc" in coding["system"].lower():
-                vocab = "LOINC"
-            elif "snomed" in coding["system"].lower():
-                vocab = "SNOMED"
-            elif "icd" in coding["system"].lower():
-                vocab = "ICD"
-            else:
-                # vocab = None
-                vocab = coding["system"].split("/")[-1].upper()
-        if vocab:
-            code = f"{vocab}//{coding['code']}"
+    parts = re.split(r'\.|\[|\]', path)
+    obj = resource
+    for part in parts:
+        if not part:
+            continue
+        # Check if part is a numeric index for list access
+        if part.isdigit():
+            try:
+                obj = obj[int(part)]
+            except (IndexError, TypeError, KeyError):
+                return None
+        elif isinstance(obj, dict):
+            obj = obj.get(part)
         else:
-            code = coding["code"]
-    elif "identifier" in resource and resource["identifier"]:
-        code = resource["identifier"][0].get("value")
-        vocab = resource["identifier"][0].get("system")
-        if vocab:
-            vocab = vocab.split("/")[-1].upper()
-            code = f"{vocab}//{code}"
-    # numeric_value
-    numeric_value = None
-    if "valueQuantity" in resource and resource["valueQuantity"]:
-        try:
-            numeric_value = float(resource["valueQuantity"]["value"])
-        except Exception:
-            numeric_value = None
-    elif "value" in resource:
-        try:
-            numeric_value = float(resource["value"])
-        except Exception:
-            numeric_value = None
-    # text_value
-    text_value = resource.get("valueString")
-    if not text_value and resource.get("valueCodeableConcept"):
-        text_value = resource["valueCodeableConcept"].get("text")
-    elif not text_value and resource.get("note"):
-        # Some resources use 'note' for text
-        notes = resource["note"]
-        if isinstance(notes, list) and notes:
-            text_value = notes[0].get("text")
-    code = safe_str(code)
-    text_value = safe_str(text_value)
-    return {
-        "subject_id": subject_id,
-        "time": time,
-        "code": code,
-        "numeric_value": numeric_value,
-        "text_value": text_value,
-    }
+            obj = getattr(obj, part, None)
+        if obj is None:
+            if column_name == "code":
+                print(f"Warning: Unable to resolve path '{path}' in resource {resource.get('resourceType', 'unknown')}")
+                print(f"Resource content: {json.dumps(resource, indent=2)}")
+            return None
+    return obj
+
+def extract_vocab(system_url):
+    if not system_url:
+        return ''
+    if 'loinc' in system_url.lower():
+        return 'LOINC'
+    if 'snomed' in system_url.lower():
+        return 'SNOMED'
+    if 'icd' in system_url.lower():
+        return system_url.split('-')[-1].upper()
+    return system_url.split('/')[-1].upper()
+
+def build_event(resource, config, uuid_to_int=None, default_config=None):
+    event = {}
+    rtype = resource["resourceType"]
+    if default_config:
+        for key, value in default_config.items():
+            if key not in config:
+                config[key] = value
+    if rtype == "Medication":
+         print(resource)
+    for key, exprs in config.items():
+        if key == 'subject_id':
+            rtype = resource.get('resourceType') if isinstance(resource, dict) else getattr(resource, 'resource_type', None)
+            if rtype == "Patient":
+                identifiers = resource.get('identifier', []) if isinstance(resource, dict) else getattr(resource, 'identifier', [])
+                found = False
+                for ident in identifiers:
+                    system = ident.get('system') if isinstance(ident, dict) else getattr(ident, 'system', None)
+                    value = ident.get('value') if isinstance(ident, dict) else getattr(ident, 'value', None)
+                    if system and "identifier/patient" in system and value is not None:
+                        try:
+                            event['subject_id'] = int(value)
+                        except Exception:
+                            event['subject_id'] = value
+                        found = True
+                        break
+                if not found:
+                    event['subject_id'] = resource.get('id') if isinstance(resource, dict) else getattr(resource, 'id', None)
+            else:
+                for field in ['subject', 'patient']:
+                    obj = resource.get(field) if isinstance(resource, dict) else getattr(resource, field, None)
+                    if obj:
+                        ref = obj.get('reference') if isinstance(obj, dict) else getattr(obj, 'reference', None)
+                        if ref and ref.startswith("Patient/"):
+                            patient_uuid = ref.split("/")[-1]
+                            if uuid_to_int and patient_uuid in uuid_to_int:
+                                event['subject_id'] = uuid_to_int[patient_uuid]
+                            else:
+                                event['subject_id'] = patient_uuid
+                            break
+                    else:
+                        event['subject_id'] = None
+        elif key == 'code' and isinstance(exprs, list):
+            parts = []
+            for expr in exprs:
+                if expr.startswith('const('):
+                    val = expr[6:-1]
+                    if val == 'resourceType':
+                        val = resource.get('resourceType') if isinstance(resource, dict) else getattr(resource, 'resource_type', None)
+                    parts.append(str(val))
+                elif expr.startswith('col('):
+                    val = extract_path(resource, expr[4:-1], column_name='code')
+                    if val is not None:
+                        parts.append(str(val))
+                elif expr.startswith('vocab('):
+                    system_url = extract_path(resource, expr[6:-1], column_name='code')
+                    parts.append(extract_vocab(system_url))
+            event[key] = ''.join([str(x) for x in parts if x not in (None, '', 'null')])
+        elif isinstance(exprs, list):
+            for expr in exprs:
+                if expr.startswith('col('):
+                    val = extract_path(resource, expr[4:-1])
+                    if val is not None:
+                        event[key] = val
+                        break
+        elif isinstance(exprs, str) and exprs.startswith('col('):
+            event[key] = extract_path(resource, exprs[4:-1])
+        else:
+            event[key] = exprs
+    return event
