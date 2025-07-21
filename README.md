@@ -19,6 +19,8 @@ MEDS on FHIR
 [![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/rvandewater/FHIR_MEDS#license)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/rvandewater/FHIR_MEDS/pulls)
 [![contributors](https://img.shields.io/github/contributors/rvandewater/FHIR_MEDS.svg)](https://github.com/rvandewater/FHIR_MEDS/graphs/contributors)
+[![DOI](https://zenodo.org/badge/1021967233.svg)](https://doi.org/10.5281/zenodo.16269017)
+
 
 
 ## Overview
