@@ -1,3 +1,4 @@
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="static/meds_on_fhir_logo_light.svg">
@@ -21,6 +22,8 @@ MEDS on FHIR
 
 
 ## Overview
+> [!CAUTION]
+> This package is in alpha development. Use at your own risk.
 
 **MEDS on FHIR** is a Python package for converting HL7 FHIR (v4/v5) resources into the [MEDS](https://github.com/Medical-Event-Data-Standard/meds) sharded Parquet 
 format. It supports scalable, schema-validated event extraction and is designed for research and interoperability projects.
