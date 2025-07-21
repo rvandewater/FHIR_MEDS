@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "fhir2meds"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Convert HL7 FHIR (v4/v5) Observation resources to MEDS sharded Parquet format."
 authors = [ { name = "Robin P. van de Water", email = "robin.vandewater@hpi.de" } ]
 readme = "README.md"
@@ -15,6 +19,9 @@ dependencies = [
     "beautifulsoup4",
     "hydra-core"
 ]
+[tool.setuptools_scm]
 
 [project.scripts]
-fhir2meds = "fhir2meds.cli:main" 
+fhir2meds = "fhir2meds.__main__:main"
+FHIR_MEDS = "fhir2meds.__main__:main"
+MEDS_ON_FHIR = "fhir2meds.__main__:main"
