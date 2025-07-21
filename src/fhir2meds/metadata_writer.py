@@ -45,7 +45,7 @@ def write_dataset_metadata(
         if not isinstance(value, str) or isinstance(value, dict) or isinstance(value, list):
             try:
                 metadata[key] = str(value)
-            except:
+            except Exception as e:
                 logging.warning(f"Failed to convert {key} to string: {e}")
                 metadata[key] = None
 

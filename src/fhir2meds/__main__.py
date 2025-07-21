@@ -1,4 +1,3 @@
-import argparse
 import os
 from pathlib import Path
 
@@ -15,7 +14,6 @@ import hydra
 from .download import download_data
 import polars as pl
 # Fix MAIN_CFG for hydra.main
-import os
 MAIN_CFG_PATH = str(MAIN_CFG)
 MAIN_CFG_PARENT = os.path.dirname(MAIN_CFG_PATH)
 MAIN_CFG_STEM = os.path.splitext(os.path.basename(MAIN_CFG_PATH))[0]

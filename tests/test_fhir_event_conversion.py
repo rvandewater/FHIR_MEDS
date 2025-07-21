@@ -1,4 +1,3 @@
-import pytest
 from types import SimpleNamespace
 
 # Helper to resolve dotted paths like 'code.coding[0].code' on dicts or objects
