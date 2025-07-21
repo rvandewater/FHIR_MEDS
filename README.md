@@ -27,11 +27,10 @@ format. It supports scalable, schema-validated event extraction and is designed 
 This project is in its early stages and has been tested mainly with the MIMIC-IV FHIR demo.
 
 ## Features
-- Parses and processes all FHIR resource types (v4/v5)
+- Parses and processes all MEDS-compatible FHIR resource types (v4/v5) (tested with MIMIC-IV FHIR demo)
 - Robust mapping from FHIR Observation to MEDS event schema
 - Handles patient ID resolution and vocabulary mapping
 - Outputs sharded Parquet files, validated against the MEDS schema
-- Parallelized, high-performance pipeline using polars and pyarrow
 - Extensible: add mapping for new FHIR resource types easily
 - Comprehensive test suite for FHIR resource parsing
 
@@ -50,14 +49,15 @@ pip install -e .
 ## Usage
 
 ```bash
-fhir2meds --input_dir path/to/mimic-fhir --output_dir path/to/meds_output --max_observations 100
+fhir2meds raw_input_dir=mimic-fhir root_output_dir=example_output ++overwrite=true ++verbose=true
 ```
 
-- `--input_dir`: Directory containing FHIR .ndjson/.json files (e.g., MIMIC-IV FHIR demo)
-- `--output_dir`: Output directory for MEDS Parquet shards
-- `--max_observations`: (Optional) Limit number of observations for debugging
-- `--overwrite`: (Optional) Overwrite existing output directory
-- `--do_download`: (Optional) Download MIMIC-IV FHIR demo dataset automatically (TODO)
+- `raw_input_dir`: Directory containing FHIR .ndjson/.json files (e.g., MIMIC-IV FHIR demo)
+- `output_dir`: Output directory for MEDS Parquet shards
+- `max_observations`: (Optional) Limit number of observations for debugging
+- `overwrite`: (Optional) Overwrite existing output directory
+- `verbose`: (Optional) Enable verbose logging
+- `do_download`: (Optional) Download MIMIC-IV FHIR demo dataset automatically (to be tested)
 
 ---
 
