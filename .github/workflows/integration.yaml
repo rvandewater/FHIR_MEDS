@@ -1,0 +1,31 @@
+# Downloads public datasets (MIMIC-IV FHIR demo, pinned Synthea samples) and runs the full pipeline on them.
+name: Integration (public datasets)
+
+on:
+  schedule:
+    - cron: "0 5 * * 1" # weekly, Monday 05:00 UTC
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install packages
+        run: |
+          pip install -e .[tests]
+
+      - name: Run download tests
+        env:
+          FHIR_MEDS_RUN_DOWNLOAD_TESTS: "1"
+        run: |
+          pytest -v tests/e2e_demo_test.py tests/test_synthea.py -k "external or e2e"
