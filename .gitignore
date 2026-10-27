@@ -91,3 +91,5 @@ venv/
 *.parquet
 example_output/ 
 mimic-fhir/ 
+# MkDocs build output
+site/

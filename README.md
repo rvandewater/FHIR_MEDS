@@ -40,6 +40,11 @@ The pipeline has two steps:
    into MEDS events according to a declarative MESSY spec (`configs/messy.yaml`), then shard by subject, split into
    train/tuning/held_out and write MEDS metadata.
 
+Documentation, including the [design choices](https://fhir2meds.readthedocs.io/en/latest/design/) behind the
+mapping and a [review of Synthea datasets](https://fhir2meds.readthedocs.io/en/latest/synthea/) for testing, is at
+[fhir2meds.readthedocs.io](https://fhir2meds.readthedocs.io). Build it locally with
+`pip install -e ".[docs]" && mkdocs serve`.
+
 ## Features
 - Reads FHIR bulk-data NDJSON (`*.ndjson[.gz]`) and resources/Bundles (`*.json[.gz]`, e.g. Synthea output)
 - Streams input, so large exports don't need to fit in memory
