@@ -1,0 +1,17 @@
+# Where raw FHIR data can be downloaded from, in MEDS-Extract's `sources:` schema (consumed by
+# `meds-extract-download`). `do_demo=true` selects the open-access `demo` bucket; the full MIMIC-IV FHIR release is
+# credentialed and needs PHYSIONET_USER / PHYSIONET_PASSWORD in the environment.
+sources:
+  dataset_version:
+    dataset: "2.1"
+    demo: "2.1.0"
+  dataset:
+    - type: physionet
+      base_url: https://physionet.org/files/mimic-iv-fhir/${sources.dataset_version.dataset}
+      username: ${oc.env:PHYSIONET_USER,null}
+      password: ${oc.env:PHYSIONET_PASSWORD,null}
+      include: ["fhir/*.ndjson.gz"]
+  demo:
+    - type: physionet
+      base_url: https://physionet.org/files/mimic-iv-fhir-demo/${sources.dataset_version.demo}
+      include: ["fhir/*.ndjson.gz"]

@@ -3,11 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from fhir2meds.fhir_parser import get_sample_resources_by_type, load_event_config
+from fhir2meds.fhir_parser import get_sample_resources_by_type
 
 # Point this at a local copy of the MIMIC-IV FHIR demo (https://physionet.org/content/mimic-iv-fhir-demo/).
 FHIR_DIR = Path(os.environ.get("FHIR_MEDS_DEMO_DIR", "mimic-fhir"))
-EVENT_CONFIG = load_event_config(fhir_version="R4")
 
 # List of common FHIR resource types to test (extend as needed)
 RESOURCE_TYPES = [
@@ -29,7 +28,7 @@ RESOURCE_TYPES = [
 def samples_by_type():
     if not FHIR_DIR.is_dir():
         pytest.skip(f"No local FHIR demo data at {FHIR_DIR}; set FHIR_MEDS_DEMO_DIR to enable.")
-    return get_sample_resources_by_type(str(FHIR_DIR), event_config=EVENT_CONFIG, fhir_version="R4", n=3)
+    return get_sample_resources_by_type(str(FHIR_DIR), set(RESOURCE_TYPES), fhir_version="R4", n=3)
 
 
 @pytest.mark.parametrize("resource_type", RESOURCE_TYPES)
