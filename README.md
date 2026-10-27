@@ -54,15 +54,20 @@ pip install -e .
 ## Usage
 
 ```bash
-fhir2meds raw_input_dir=mimic-fhir root_output_dir=example_output ++overwrite=true ++verbose=true
+fhir2meds raw_input_dir=mimic-fhir root_output_dir=example_output do_overwrite=true verbose=true
 ```
 
-- `raw_input_dir`: Directory containing FHIR .ndjson/.json files (e.g., MIMIC-IV FHIR demo)
-- `output_dir`: Output directory for MEDS Parquet shards
-- `max_observations`: (Optional) Limit number of observations for debugging
-- `overwrite`: (Optional) Overwrite existing output directory
+- `raw_input_dir`: Directory containing FHIR files, searched recursively: bulk-export `*.ndjson` / `*.ndjson.gz`
+  files and `*.json` / `*.json.gz` resources or Bundles (e.g. Synthea's one-Bundle-per-patient output)
+- `root_output_dir`: Output directory; MEDS shards are written to `data/` and metadata to `metadata/`
+- `max_events`: (Optional) Limit number of resources per type for debugging
+- `do_overwrite`: (Optional) Clear the existing output directory first (`overwrite` is a deprecated alias)
 - `verbose`: (Optional) Enable verbose logging
 - `do_download`: (Optional) Download MIMIC-IV FHIR demo dataset automatically (to be tested)
+
+MEDS requires integer `subject_id`s. If a Patient has an integer identifier whose system ends in
+`/identifier/patient` (MIMIC-IV's `subject_id`), it is used; otherwise the `subject_id` is a stable SHA-256-derived
+integer of the Patient's logical id. The mapping is written to `subject_id_map.csv`.
 
 ---
 
@@ -71,7 +76,8 @@ fhir2meds raw_input_dir=mimic-fhir root_output_dir=example_output ++overwrite=tr
 Run the test suite (requires pytest):
 
 ```bash
-PYTHONPATH=src pytest tests/
+pip install -e ".[tests]"
+pytest
 ```
 
 ---

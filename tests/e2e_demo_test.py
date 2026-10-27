@@ -1,9 +1,16 @@
+import os
 import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 
-# @pytest.mark.skip(reason="If you have a demo dataset, re-enable this test in your downstream repositories.")
+
+@pytest.mark.skipif(
+    os.environ.get("FHIR_MEDS_RUN_DOWNLOAD_TESTS") != "1",
+    reason="Downloads the MIMIC-IV FHIR demo from PhysioNet; set FHIR_MEDS_RUN_DOWNLOAD_TESTS=1 to run.",
+)
 def test_e2e():
     with TemporaryDirectory() as temp_dir:
 
@@ -14,7 +21,7 @@ def test_e2e():
         do_download = True
 
         command_parts = [
-            "python -m OMOP_MEDS.__main__",
+            f"{sys.executable} -m fhir2meds",
             f"root_output_dir={str(root.resolve())}",
             f"do_download={do_download}",
             f"do_overwrite={do_overwrite}",
@@ -34,14 +41,14 @@ def test_e2e():
         )
         assert command_out.returncode == 0, err_message
 
-        data_path = root / "MEDS_cohort" / "data"
+        data_path = root / "data"
         data_files = list(data_path.glob("*.parquet")) + list(data_path.glob("**/*.parquet"))
 
         all_files = [x for x in data_path.glob("**/*") if x.is_file()]
 
         assert len(data_files) > 0, f"No data files found in {data_path}; found {all_files}"
 
-        metadata_path = root / "MEDS_cohort" / "metadata"
+        metadata_path = root / "metadata"
         all_files = [x for x in metadata_path.glob("**/*") if x.is_file()]
 
         dataset_metadata = metadata_path / "dataset.json"

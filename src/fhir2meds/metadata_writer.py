@@ -1,9 +1,11 @@
-import os
-import json
 import datetime
+import json
+import os
+
 import pyarrow as pa
 import pyarrow.parquet as pq
-import logging
+from meds import CodeMetadataSchema, DatasetMetadataSchema, SubjectSplitSchema
+
 
 def write_dataset_metadata(
     output_dir,
@@ -23,7 +25,7 @@ def write_dataset_metadata(
 ):
     """
     Write dataset metadata to metadata/dataset.json in the output directory.
-    Fields match DatasetMetadataSchema.
+    Fields match DatasetMetadataSchema; unset fields are written as JSON null (not the string "None").
     """
     metadata = {
         "dataset_name": dataset_name,
@@ -33,7 +35,7 @@ def write_dataset_metadata(
         "meds_version": meds_version,
         "created_at": datetime.datetime.now().isoformat(),
         "license": license,
-        "location_uri": location_uri,
+        "location_uri": None if location_uri is None else str(location_uri),
         "description_uri": description_uri,
         "raw_source_id_columns": raw_source_id_columns,
         "code_modifier_columns": code_modifier_columns,
@@ -41,13 +43,8 @@ def write_dataset_metadata(
         "site_id_columns": site_id_columns,
         "other_extension_columns": other_extension_columns,
     }
-    for key, value in metadata.items():
-        if not isinstance(value, str) or isinstance(value, dict) or isinstance(value, list):
-            try:
-                metadata[key] = str(value)
-            except Exception as e:
-                logging.warning(f"Failed to convert {key} to string: {e}")
-                metadata[key] = None
+    metadata = {k: v for k, v in metadata.items() if v is not None}
+    DatasetMetadataSchema.validate(metadata)
 
     output_dir = str(output_dir)
     os.makedirs(os.path.join(output_dir, "metadata"), exist_ok=True)
@@ -55,18 +52,20 @@ def write_dataset_metadata(
         json.dump(metadata, f, indent=2)
 
 
-def write_codes_metadata(output_dir, events):
+def write_codes_metadata(output_dir, events, descriptions=None):
     """
     Write code metadata to metadata/codes.parquet in the output directory.
     Matches CodeMetadataSchema: code, description, parent_codes.
     """
-    codes = set(e["code"] for e in events if e.get("code"))
+    descriptions = descriptions or {}
+    codes = sorted({e["code"] for e in events if e.get("code")})
     data = {
-        "code": list(codes),
-        "description": [c for c in codes],
+        "code": codes,
+        "description": [descriptions.get(c) for c in codes],
         "parent_codes": [[] for _ in codes],
     }
-    table = pa.table(data)
+    table = pa.table(data, schema=CodeMetadataSchema.schema())
+    os.makedirs(os.path.join(output_dir, "metadata"), exist_ok=True)
     pq.write_table(table, os.path.join(output_dir, "metadata", "codes.parquet"))
 
 
@@ -75,10 +74,11 @@ def write_subject_splits(output_dir, events, split_name="train"):
     Write subject splits to metadata/subject_splits.parquet in the output directory.
     Columns: subject_id, split. All assigned to split_name by default.
     """
-    subject_ids = set(e["subject_id"] for e in events if e.get("subject_id") is not None)
+    subject_ids = sorted({e["subject_id"] for e in events if e.get("subject_id") is not None})
     data = {
-        "subject_id": list(subject_ids),
+        "subject_id": subject_ids,
         "split": [split_name] * len(subject_ids),
     }
-    table = pa.table(data)
-    pq.write_table(table, os.path.join(output_dir, "metadata", "subject_splits.parquet")) 
+    table = pa.table(data, schema=SubjectSplitSchema.schema())
+    os.makedirs(os.path.join(output_dir, "metadata"), exist_ok=True)
+    pq.write_table(table, os.path.join(output_dir, "metadata", "subject_splits.parquet"))

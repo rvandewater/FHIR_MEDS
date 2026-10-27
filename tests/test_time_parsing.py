@@ -1,6 +1,9 @@
-import polars as pl
-from fhir2meds.meds_writer import robust_cast_time_column
 import datetime
+
+import polars as pl
+
+from fhir2meds.meds_writer import robust_cast_time_column
+
 
 def test_robust_cast_time_column():
     # Test cases: Z, +HH:MM, -HH:MM, only hours offset, milliseconds, no seconds, and no offset
@@ -43,4 +46,4 @@ def test_robust_cast_time_column():
             assert r is None, f"Case {idx}: Input '{input_val}' - Expected None, got {r}"
         else:
             assert r is not None, f"Case {idx}: Input '{input_val}' - Expected {e}, got None"
-            assert r.replace(tzinfo=None) == e, f"Case {idx}: Input '{input_val}' - Expected {e}, got {r}" 
+            assert r.replace(tzinfo=None) == e, f"Case {idx}: Input '{input_val}' - Expected {e}, got {r}"

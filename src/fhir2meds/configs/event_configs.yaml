@@ -146,66 +146,97 @@ R4:
     - ValueSet
     - VerificationResult
     - VisionPrescription
-  # Custom clinical resource configs
-  # Default for all other resources
-  #{'resourceType': 'MedicationRequest', 'id': 'fe0946a1-661b-565a-9272-7c1569e94cb2', 'meta': {'versionId': '1', 'lastUpdated': '2022-05-24T17:16:23.842-04:00', 'source': '#dkhMMmvv1PtPdrV5', 'profile': ['http://fhir.mimic.mit.edu/StructureDefinition/mimic-medication-request']}, 'identifier': [{'type': {'coding': [{'system': 'http://fhir.mimic.mit.edu/CodeSystem/identifier-type', 'code': 'PHID', 'display': 'Pharmacy identifier'}]}, 'system': 'http://fhir.mimic.mit.edu/identifier/medication-request', 'value': '48357112'}], 'status': 'completed', 'intent': 'order', 'medicationReference': {'reference': 'Medication/0f0ac5ff-6c40-5def-af56-bf696aa30ee9'}, 'subject': {'reference': 'Patient/cd462e42-c070-5235-ae76-c37733a451be'}, 'encounter': {'reference': 'Encounter/c7122e1e-d950-5bcd-90b9-6a2fbb1352e4'}, 'authoredOn': '2189-06-09T16:45:19-04:00', 'dosageInstruction': [{'text': '20mEq Packet', 'route': {'coding': [{'system': 'http://fhir.mimic.mit.edu/CodeSystem/medication-route', 'code': 'PO'}]}, 'doseAndRate': [{'doseQuantity': {'value': 80, 'unit': 'mEq', 'system': 'http://fhir.mimic.mit.edu/CodeSystem/units', 'code': 'mEq'}}]}], 'dispenseRequest': {'validityPeriod': {'start': '2189-06-09T17:00:00-04:00', 'end': '2189-06-10T23:00:00-04:00'}}}
-  MedicationRequest:
-    code:
+  # Custom clinical resource configs. Keys not set here are taken from `default`.
+  # Each `time` list is tried in order; the first path that resolves wins.
+  MedicationRequest: &medication_request
+    code: &medication_code
       - const(resourceType)
       - const(//)
-      - vocab(identifier[0][system])
+      - vocab(medicationCodeableConcept.coding[0].system)
       - const(//)
-      - col(identifier[0][value])
+      - col(medicationCodeableConcept.coding[0].code)
+    description: &medication_description col(medicationCodeableConcept.coding[0].display)
     time: col(authoredOn)
   MedicationAdministration:
-    code:
-      - const(resourceType)
-      - const(//)
-      - vocab(identifier[0][system])
-      - const(//)
-      - col(identifier[0][value])
-    time: col(authoredOn)
+    code: *medication_code
+    description: *medication_description
+    time:
+      - col(effectiveDateTime)
+      - col(effectivePeriod.start)
   MedicationDispense:
+    code: *medication_code
+    description: *medication_description
+    time:
+      - col(whenHandedOver)
+      - col(whenPrepared)
+  MedicationStatement:
+    code: *medication_code
+    description: *medication_description
+    time:
+      - col(effectiveDateTime)
+      - col(effectivePeriod.start)
+      - col(dateAsserted)
+  Immunization:
     code:
       - const(resourceType)
       - const(//)
-      - vocab(medicationCodeableConcept[coding][0][system])
+      - vocab(vaccineCode.coding[0].system)
       - const(//)
-      - col(medicationCodeableConcept[coding][0][code])
-    time: col(authoredOn)
+      - col(vaccineCode.coding[0].code)
+    description: col(vaccineCode.coding[0].display)
+    time:
+      - col(occurrenceDateTime)
+      - col(recorded)
   Specimen:
     code:
       - const(resourceType)
       - const(//)
-      - vocab(identifier[0][system])
+      - vocab(type.coding[0].system)
       - const(//)
-      - col(identifier[0][value])
-    time: col(collection[0].collectedDateTime)
+      - col(type.coding[0].code)
+    description: col(type.coding[0].display)
+    time:
+      - col(collection.collectedDateTime)
+      - col(collection.collectedPeriod.start)
+      - col(receivedTime)
   Encounter:
     code:
       - const(resourceType)
       - const(//)
-      - vocab(type[0][coding][0][system])
+      - vocab(type[0].coding[0].system)
       - const(//)
-      - col(type[0][coding][0][code])
+      - col(type[0].coding[0].code)
+    description: col(type[0].coding[0].display)
     time:
-      - col(period[start])
+      - col(period.start)
   default:
     code:
       - const(resourceType)
       - const(//)
-      - vocab(code[coding][0][system])
+      - vocab(code.coding[0].system)
       - const(//)
-      - col(code[coding][0][code])
+      - col(code.coding[0].code)
+    description: col(code.coding[0].display)
     time:
       - col(effectiveDateTime)
+      - col(effectivePeriod.start)
+      - col(effectiveInstant)
       - col(issued)
       - col(authoredOn)
       - col(performedDateTime)
+      - col(performedPeriod.start)
       - col(onsetDateTime)
+      - col(onsetPeriod.start)
+      - col(recordedDate)
+      - col(occurrenceDateTime)
+      - col(occurrencePeriod.start)
     numeric_value: col(valueQuantity.value)
-    text_value: col(valueString)
-    subject_id: col(subject.reference)
+    text_value:
+      - col(valueString)
+      - col(valueCodeableConcept.text)
+      - col(valueCodeableConcept.coding[0].display)
+      - col(valueCodeableConcept.coding[0].code)
+      - col(valueDateTime)
   Patient:
     code:
       - const(MEDS_BIRTH)
@@ -356,64 +387,94 @@ R5:
     - ValueSet
     - VerificationResult
     - VisionPrescription
-  # Custom clinical resource configs
+  # Custom clinical resource configs. Keys not set here are taken from `default`.
+  # R5 renames several fields relative to R4 (CodeableReference medications, Encounter.actualPeriod,
+  # MedicationAdministration.occurence[x] (sic), Procedure.occurrence[x]).
   MedicationRequest:
-    code:
+    code: &r5_medication_code
       - const(resourceType)
       - const(//)
-      - vocab(identifier[0][system])
+      - vocab(medication.concept.coding[0].system)
       - const(//)
-      - col(identifier[0][value])
+      - col(medication.concept.coding[0].code)
+    description: &r5_medication_description col(medication.concept.coding[0].display)
     time: col(authoredOn)
   MedicationAdministration:
-    code:
-      - const(resourceType)
-      - const(//)
-      - vocab(identifier[0][system])
-      - const(//)
-      - col(identifier[0][value])
-    time: col(authoredOn)
+    code: *r5_medication_code
+    description: *r5_medication_description
+    time:
+      - col(occurenceDateTime)
+      - col(occurencePeriod.start)
   MedicationDispense:
+    code: *r5_medication_code
+    description: *r5_medication_description
+    time:
+      - col(whenHandedOver)
+      - col(whenPrepared)
+  MedicationStatement:
+    code: *r5_medication_code
+    description: *r5_medication_description
+    time:
+      - col(effectiveDateTime)
+      - col(effectivePeriod.start)
+      - col(dateAsserted)
+  Immunization:
     code:
       - const(resourceType)
       - const(//)
-      - vocab(medicationCodeableConcept[coding][0][system])
+      - vocab(vaccineCode.coding[0].system)
       - const(//)
-      - col(medicationCodeableConcept[coding][0][code])
-    time: col(authoredOn)
+      - col(vaccineCode.coding[0].code)
+    description: col(vaccineCode.coding[0].display)
+    time: col(occurrenceDateTime)
   Specimen:
     code:
       - const(resourceType)
       - const(//)
-      - vocab(identifier[0][system])
+      - vocab(type.coding[0].system)
       - const(//)
-      - col(identifier[0][value])
-    time: col(collection[0].collectedDateTime)
+      - col(type.coding[0].code)
+    description: col(type.coding[0].display)
+    time:
+      - col(collection.collectedDateTime)
+      - col(collection.collectedPeriod.start)
+      - col(receivedTime)
   Encounter:
     code:
       - const(resourceType)
       - const(//)
-      - vocab(type[0][coding][0][system])
+      - vocab(type[0].coding[0].system)
       - const(//)
-      - col(type[0][coding][0][code])
+      - col(type[0].coding[0].code)
+    description: col(type[0].coding[0].display)
     time:
-      - col(period[start])
+      - col(actualPeriod.start)
   default:
     code:
       - const(resourceType)
       - const(//)
-      - vocab(code[coding][0][system])
+      - vocab(code.coding[0].system)
       - const(//)
-      - col(code[coding][0][code])
+      - col(code.coding[0].code)
+    description: col(code.coding[0].display)
     time:
       - col(effectiveDateTime)
+      - col(effectivePeriod.start)
+      - col(effectiveInstant)
       - col(issued)
       - col(authoredOn)
-      - col(performedDateTime)
+      - col(occurrenceDateTime)
+      - col(occurrencePeriod.start)
       - col(onsetDateTime)
+      - col(onsetPeriod.start)
+      - col(recordedDate)
     numeric_value: col(valueQuantity.value)
-    text_value: col(valueString)
-    subject_id: col(subject.reference)
+    text_value:
+      - col(valueString)
+      - col(valueCodeableConcept.text)
+      - col(valueCodeableConcept.coding[0].display)
+      - col(valueCodeableConcept.coding[0].code)
+      - col(valueDateTime)
   Patient:
     code:
       - const(MEDS_BIRTH)
