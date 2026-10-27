@@ -29,7 +29,11 @@ R4: &R4
     start_fallback: encounter_end
   Observation:
     code: ["code"]
-    start: ["effectiveDateTime", "effectivePeriod.start", "effectiveInstant", "issued"]
+    start:
+      - effectiveDateTime
+      - effectivePeriod.start
+      - effectiveInstant
+      - issued
     value: observation
   DiagnosticReport:
     code: ["code"]
@@ -72,7 +76,10 @@ R4: &R4
     start: ["onsetDateTime", "onsetPeriod.start", "recordedDate"]
   Specimen:
     code: ["type"]
-    start: ["collection.collectedDateTime", "collection.collectedPeriod.start", "receivedTime"]
+    start:
+      - collection.collectedDateTime
+      - collection.collectedPeriod.start
+      - receivedTime
   CarePlan:
     code: ["category[1]", "category[0]"]
     start: ["period.start", "created"]

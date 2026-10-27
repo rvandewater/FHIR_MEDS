@@ -8,7 +8,11 @@ from collections import Counter
 
 import polars as pl
 
-from fhir2meds.fhir_parser import iter_fhir_files, iter_resources, load_fhir_resources_by_type
+from fhir2meds.fhir_parser import (
+    iter_fhir_files,
+    iter_resources,
+    load_fhir_resources_by_type,
+)
 from fhir2meds.pre_MEDS import run_pre_MEDS
 from fhir2meds.subject_ids import stable_subject_id
 from fhir2meds.vocabulary import extract_vocab

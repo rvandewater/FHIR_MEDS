@@ -24,7 +24,12 @@ from typing import Any
 import polars as pl
 import yaml
 
-from .fhir_parser import extract_path, iter_fhir_files, iter_resources, parse_patient_reference
+from .fhir_parser import (
+    extract_path,
+    iter_fhir_files,
+    iter_resources,
+    parse_patient_reference,
+)
 from .subject_ids import build_subject_id_map, subject_id_from_identifiers
 from .vocabulary import extract_vocab
 
@@ -374,9 +379,8 @@ def parse_fhir_datetime(col: str | pl.Expr, keep_local_time: bool = False) -> pl
     """Parse FHIR ``date``/``dateTime``/``instant`` strings into naive microsecond datetimes.
 
     Values with a UTC offset are converted to UTC (or, with ``keep_local_time``, keep their local wall-clock
-    time);
-    values without one are taken as-is. Partial dates are padded to the start of the period. Unparseable ->
-    null.
+    time); values without one are taken as-is. Partial dates are padded to the start of the period.
+    Unparsable -> null.
 
     Examples:
         >>> df = pl.DataFrame({"t": ["2020-03-01T10:00:00+01:00", "2020-03-01T10:00:00.5Z",
