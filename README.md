@@ -1,4 +1,3 @@
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="static/meds_on_fhir_logo_light.svg">
@@ -7,8 +6,7 @@
   </picture>
 </p>
 
-MEDS on FHIR
----
+## MEDS on FHIR
 
 [![PyPI - Version](https://img.shields.io/pypi/v/fhir2meds)](https://pypi.org/project/fhir2meds/)
 [![Documentation Status](https://readthedocs.org/projects/fhir2meds/badge/?version=latest)](https://fhir2meds.readthedocs.io/en/stable/?badge=stable)
@@ -21,17 +19,17 @@ MEDS on FHIR
 [![contributors](https://img.shields.io/github/contributors/rvandewater/FHIR_MEDS.svg)](https://github.com/rvandewater/FHIR_MEDS/graphs/contributors)
 [![DOI](https://zenodo.org/badge/1021967233.svg)](https://doi.org/10.5281/zenodo.16269017)
 
-
-
 ## Overview
+
 > [!CAUTION]
 > This package is in alpha development. Use at your own risk.
 
-**MEDS on FHIR** is a Python package for converting HL7 FHIR (v4/v5) resources into the [MEDS](https://github.com/Medical-Event-Data-Standard/meds) sharded Parquet 
+**MEDS on FHIR** is a Python package for converting HL7 FHIR (v4/v5) resources into the [MEDS](https://github.com/Medical-Event-Data-Standard/meds) sharded Parquet
 format. It supports scalable, schema-validated event extraction and is designed for research and interoperability projects.
 This project is in its early stages and has been tested mainly with the MIMIC-IV FHIR demo.
 
 ## Features
+
 - Parses and processes all MEDS-compatible FHIR resource types (v4/v5) (tested with MIMIC-IV FHIR demo)
 - Robust mapping from FHIR Observation to MEDS event schema
 - Handles patient ID resolution and vocabulary mapping
@@ -39,7 +37,7 @@ This project is in its early stages and has been tested mainly with the MIMIC-IV
 - Extensible: add mapping for new FHIR resource types easily
 - Comprehensive test suite for FHIR resource parsing
 
----
+______________________________________________________________________
 
 ## Installation
 
@@ -49,7 +47,7 @@ pip install fhir2meds
 pip install -e .
 ```
 
----
+______________________________________________________________________
 
 ## Usage
 
@@ -58,7 +56,7 @@ fhir2meds raw_input_dir=mimic-fhir root_output_dir=example_output do_overwrite=t
 ```
 
 - `raw_input_dir`: Directory containing FHIR files, searched recursively: bulk-export `*.ndjson` / `*.ndjson.gz`
-  files and `*.json` / `*.json.gz` resources or Bundles (e.g. Synthea's one-Bundle-per-patient output)
+    files and `*.json` / `*.json.gz` resources or Bundles (e.g. Synthea's one-Bundle-per-patient output)
 - `root_output_dir`: Output directory; MEDS shards are written to `data/` and metadata to `metadata/`
 - `max_events`: (Optional) Limit number of resources per type for debugging
 - `do_overwrite`: (Optional) Clear the existing output directory first (`overwrite` is a deprecated alias)
@@ -69,7 +67,7 @@ MEDS requires integer `subject_id`s. If a Patient has an integer identifier whos
 `/identifier/patient` (MIMIC-IV's `subject_id`), it is used; otherwise the `subject_id` is a stable SHA-256-derived
 integer of the Patient's logical id. The mapping is written to `subject_id_map.csv`.
 
----
+______________________________________________________________________
 
 ## Testing
 
@@ -80,23 +78,25 @@ pip install -e ".[tests]"
 pytest
 ```
 
----
+______________________________________________________________________
 
 ## References
+
 - [HL7 FHIR Resource List](https://www.hl7.org/fhir/resourcelist.html)
 - [MIMIC-IV FHIR Demo](https://physionet.org/content/mimic-iv-fhir-demo/2.0/)
 - [MEDS Format & Schema](https://github.com/Medical-Event-Data-Standard/meds)
 - [ETL_MEDS_Template](https://github.com/Medical-Event-Data-Standard/ETL_MEDS_Template)
-R4 Resource List:
-https://hl7.org/fhir/R4/resourcelist.html
----
+    R4 Resource List:
+    https://hl7.org/fhir/R4/resourcelist.html
+
+______________________________________________________________________
 
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
----
+______________________________________________________________________
 
 ## Contributing
 
-Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change. 
+Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.

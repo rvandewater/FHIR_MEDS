@@ -28,8 +28,12 @@ def mimic_like_resources() -> dict[str, list[dict]]:
     specimen = {
         "resourceType": "Specimen",
         "id": "spec-1",
-        "identifier": [{"system": "http://mimic.mit.edu/fhir/mimic/identifier/specimen-lab", "value": "9001"}],
-        "type": {"coding": [{"system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/spec-type", "code": "BLOOD"}]},
+        "identifier": [
+            {"system": "http://mimic.mit.edu/fhir/mimic/identifier/specimen-lab", "value": "9001"}
+        ],
+        "type": {
+            "coding": [{"system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/spec-type", "code": "BLOOD"}]
+        },
         "subject": subject,
         "collection": {"collectedDateTime": "2180-05-06T22:23:00-04:00"},
     }
@@ -39,7 +43,10 @@ def mimic_like_resources() -> dict[str, list[dict]]:
                 "resourceType": "Patient",
                 "id": MIMIC_PATIENT_UUID,
                 "identifier": [
-                    {"system": "http://mimic.mit.edu/fhir/mimic/identifier/patient", "value": str(MIMIC_SUBJECT_ID)}
+                    {
+                        "system": "http://mimic.mit.edu/fhir/mimic/identifier/patient",
+                        "value": str(MIMIC_SUBJECT_ID),
+                    }
                 ],
                 "name": [{"family": SENTINEL}],
                 "gender": "female",
@@ -64,7 +71,9 @@ def mimic_like_resources() -> dict[str, list[dict]]:
             {
                 "resourceType": "MedicationRequest",
                 "id": "mr-1",
-                "identifier": [{"system": "http://mimic.mit.edu/fhir/mimic/identifier/medication-request", "value": "1"}],
+                "identifier": [
+                    {"system": "http://mimic.mit.edu/fhir/mimic/identifier/medication-request", "value": "1"}
+                ],
                 "medicationReference": {"reference": "Medication/med-1"},
                 "subject": subject,
                 "authoredOn": "2180-05-07T10:00:00-04:00",
@@ -76,7 +85,9 @@ def mimic_like_resources() -> dict[str, list[dict]]:
                 "resourceType": "MedicationAdministration",
                 "id": "ma-1",
                 "medicationCodeableConcept": {
-                    "coding": [{"system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/d-items", "code": "225158"}]
+                    "coding": [
+                        {"system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/d-items", "code": "225158"}
+                    ]
                 },
                 "subject": subject,
                 "effectivePeriod": {"start": "2180-05-07T11:00:00-04:00", "end": "2180-05-07T12:00:00-04:00"},
@@ -86,7 +97,11 @@ def mimic_like_resources() -> dict[str, list[dict]]:
             {
                 "resourceType": "Observation",
                 "id": "obs-1",
-                "code": {"coding": [{"system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/d-labitems", "code": "50912"}]},
+                "code": {
+                    "coding": [
+                        {"system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/d-labitems", "code": "50912"}
+                    ]
+                },
                 "subject": subject,
                 "effectiveDateTime": "2180-05-06T22:23:00-04:00",
                 "valueQuantity": {"value": 1.2, "unit": "mg/dL"},
@@ -94,7 +109,11 @@ def mimic_like_resources() -> dict[str, list[dict]]:
             {
                 "resourceType": "Observation",
                 "id": "obs-2",
-                "code": {"coding": [{"system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/d-labitems", "code": "51006"}]},
+                "code": {
+                    "coding": [
+                        {"system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/d-labitems", "code": "51006"}
+                    ]
+                },
                 "subject": subject,
                 "effectiveDateTime": "2180-05-06T22:23:00-04:00",
                 "valueString": "HEMOLYZED",
@@ -104,7 +123,11 @@ def mimic_like_resources() -> dict[str, list[dict]]:
             {
                 "resourceType": "Procedure",
                 "id": "proc-1",
-                "code": {"coding": [{"system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/d-items", "code": "225792"}]},
+                "code": {
+                    "coding": [
+                        {"system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/d-items", "code": "225792"}
+                    ]
+                },
                 "subject": subject,
                 "performedPeriod": {"start": "2180-05-07T09:00:00-04:00", "end": "2180-05-07T09:30:00-04:00"},
             }
@@ -160,7 +183,9 @@ def synthea_like_bundle() -> dict:
         {
             "resourceType": "Observation",
             "id": "obs-bmi",
-            "code": {"coding": [{"system": "http://loinc.org", "code": "39156-5", "display": "Body mass index"}]},
+            "code": {
+                "coding": [{"system": "http://loinc.org", "code": "39156-5", "display": "Body mass index"}]
+            },
             "subject": patient_ref,
             "encounter": encounter_ref,
             "effectiveDateTime": "2020-02-03T09:05:00-05:00",

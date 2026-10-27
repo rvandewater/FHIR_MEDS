@@ -7,10 +7,12 @@ Loads all FHIR resources by type from a directory, and provides utilities for fi
 Supported inputs (searched recursively, in sorted order so runs are reproducible):
 
 - ``*.ndjson`` / ``*.ndjson.gz``: FHIR bulk-data export files, one resource per line.
-- ``*.json`` / ``*.json.gz``: a single resource or a ``Bundle`` (e.g. Synthea's one-Bundle-per-patient output).
+- ``*.json`` / ``*.json.gz``: a single resource or a ``Bundle`` (e.g. Synthea's one-Bundle-per-patient
+  output).
 
 Bundles are unpacked recursively, so the resources inside them are treated exactly like bulk-export resources.
 """
+
 import gzip
 import json
 import logging
@@ -86,7 +88,8 @@ def unpack_bundles(resource: Any) -> Iterator[dict]:
     Examples:
         >>> bundle = {"resourceType": "Bundle", "entry": [
         ...     {"resource": {"resourceType": "Patient", "id": "p1"}},
-        ...     {"resource": {"resourceType": "Bundle", "entry": [{"resource": {"resourceType": "Condition"}}]}},
+        ...     {"resource": {"resourceType": "Bundle",
+        ...                   "entry": [{"resource": {"resourceType": "Condition"}}]}},
         ...     {"request": {"method": "GET"}},
         ... ]}
         >>> [r["resourceType"] for r in unpack_bundles(bundle)]
@@ -108,8 +111,8 @@ def unpack_bundles(resource: Any) -> Iterator[dict]:
 def iter_resources(fpath: str | Path, stats: Counter | None = None) -> Iterator[dict]:
     """Yield every FHIR resource (as a dict) stored in ``fpath``.
 
-    Malformed lines are skipped and counted in ``stats["unparseable_lines"]``; their content is never logged, as it
-    may contain protected health information.
+    Malformed lines are skipped and counted in ``stats["unparseable_lines"]``; their content is never logged,
+    as it may contain protected health information.
     """
     fpath = Path(fpath)
     stats = stats if stats is not None else Counter()
@@ -172,7 +175,9 @@ def load_fhir_resources_by_type(
                     resources[rtype].append(resource_class.model_validate(data))
                     continue
                 except Exception as e:
-                    logger.warning(f"Failed to validate a {rtype} resource with fhir.resources: {type(e).__name__}")
+                    logger.warning(
+                        f"Failed to validate a {rtype} resource with fhir.resources: {type(e).__name__}"
+                    )
             resources[rtype].append(data)
     if stats:
         logger.info(f"Resource loading stats: {dict(stats)}")
@@ -183,8 +188,9 @@ def parse_patient_reference(ref: Any, known_patient_ids: Container[str] | None =
     """Return the Patient logical id a FHIR reference string points to, or None.
 
     Handles relative (``Patient/123``), absolute (``https://x/fhir/Patient/123``), versioned
-    (``Patient/123/_history/2``) and Bundle-internal (``urn:uuid:123``) references. Because a ``urn:uuid:`` reference
-    does not name the resource type, it is only accepted if ``known_patient_ids`` is not given or contains the id.
+    (``Patient/123/_history/2``) and Bundle-internal (``urn:uuid:123``) references. Because a ``urn:uuid:``
+    reference does not name the resource type, it is only accepted if ``known_patient_ids`` is not given or
+    contains the id.
 
     Examples:
         >>> parse_patient_reference("Patient/123")
@@ -259,7 +265,9 @@ def filter_subject_resources_by_type(resources_by_type: dict[str, list[Any]]) ->
         subject_resources = [res for res in resources if is_subject_associated(res)]
         skipped = len(resources) - len(subject_resources)
         if skipped > 0:
-            logger.info(f"Skipped {skipped} of {len(resources)} {rtype} resources (not associated with a subject)")
+            logger.info(
+                f"Skipped {skipped} of {len(resources)} {rtype} resources (not associated with a subject)"
+            )
         filtered[rtype] = subject_resources
     logger.info(f"Subject-associated types: {[(k, len(v)) for k, v in filtered.items()]}")
     return filtered

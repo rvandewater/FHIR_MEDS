@@ -11,10 +11,22 @@ from omegaconf import DictConfig
 
 from . import MAIN_CFG, __version__, dataset_info
 from .download import download_data
-from .event_conversion import build_event, build_patient_id_map, resolve_medication_references
-from .fhir_parser import filter_subject_resources_by_type, load_event_config, load_fhir_resources_by_type
+from .event_conversion import (
+    build_event,
+    build_patient_id_map,
+    resolve_medication_references,
+)
+from .fhir_parser import (
+    filter_subject_resources_by_type,
+    load_event_config,
+    load_fhir_resources_by_type,
+)
 from .meds_writer import write_meds_sharded_parquet
-from .metadata_writer import write_codes_metadata, write_dataset_metadata, write_subject_splits
+from .metadata_writer import (
+    write_codes_metadata,
+    write_dataset_metadata,
+    write_subject_splits,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +35,12 @@ MAIN_CFG_PATH = str(MAIN_CFG)
 MAIN_CFG_PARENT = os.path.dirname(MAIN_CFG_PATH)
 MAIN_CFG_STEM = os.path.splitext(os.path.basename(MAIN_CFG_PATH))[0]
 
-MEDICATION_TYPES = ("MedicationRequest", "MedicationAdministration", "MedicationDispense", "MedicationStatement")
+MEDICATION_TYPES = (
+    "MedicationRequest",
+    "MedicationAdministration",
+    "MedicationDispense",
+    "MedicationStatement",
+)
 
 
 def clear_output_dir(root_output_dir: Path, keep: Path | None = None) -> None:
@@ -90,7 +107,9 @@ def main(cfg: DictConfig) -> None:
     for rtype in MEDICATION_TYPES:
         n_resolved = resolve_medication_references(subject_resources.get(rtype, []), medications)
         if n_resolved:
-            logger.info(f"Resolved medicationReference to a Medication code for {n_resolved} {rtype} resources.")
+            logger.info(
+                f"Resolved medicationReference to a Medication code for {n_resolved} {rtype} resources."
+            )
 
     all_events = []
     descriptions = {}
@@ -99,7 +118,9 @@ def main(cfg: DictConfig) -> None:
             logger.info(f"Limiting to first {max_events} {rtype} resources for debugging.")
             resources = resources[:max_events]
         rtype_config = event_config.get(rtype, event_config["default"])
-        mapped_events = [build_event(res, rtype_config, uuid_to_int, event_config["default"]) for res in resources]
+        mapped_events = [
+            build_event(res, rtype_config, uuid_to_int, event_config["default"]) for res in resources
+        ]
         dropped = Counter()
         for e in mapped_events:
             if e.get("subject_id") is None:

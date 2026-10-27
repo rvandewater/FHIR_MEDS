@@ -11,7 +11,11 @@ import pytest
 from meds import CodeMetadataSchema, DataSchema, SubjectSplitSchema
 
 from fhir2meds.meds_writer import write_meds_sharded_parquet
-from fhir2meds.metadata_writer import write_codes_metadata, write_dataset_metadata, write_subject_splits
+from fhir2meds.metadata_writer import (
+    write_codes_metadata,
+    write_dataset_metadata,
+    write_subject_splits,
+)
 from tests.conftest import SENTINEL
 
 
@@ -80,6 +84,9 @@ def test_cli_end_to_end(fixture_name, request, tmp_path):
     data = pl.concat([pl.read_parquet(f) for f in sorted((out_dir / "data").glob("*.parquet"))])
     assert data.height > 0
     assert data["subject_id"].null_count() == 0
-    for name, schema in [("codes.parquet", CodeMetadataSchema), ("subject_splits.parquet", SubjectSplitSchema)]:
+    for name, schema in [
+        ("codes.parquet", CodeMetadataSchema),
+        ("subject_splits.parquet", SubjectSplitSchema),
+    ]:
         schema.validate(pq.read_table(out_dir / "metadata" / name))
     assert (out_dir / "subject_id_map.csv").exists()

@@ -3,6 +3,7 @@ event_conversion.py
 -------------------
 Config-driven conversion of FHIR resources (as dicts) to MEDS event dicts.
 """
+
 import hashlib
 import logging
 import re
@@ -19,8 +20,8 @@ DEFAULT_SUBJECT_ID_SYSTEM_SUFFIXES = ("/identifier/patient",)
 def stable_subject_id(patient_id: str) -> int:
     """Deterministically map a FHIR Patient logical id to a non-negative int64 subject_id.
 
-    Uses the first 8 bytes of SHA-256, so the mapping is stable across runs, machines and library versions (unlike
-    Python's ``hash`` or polars' ``Expr.hash``).
+    Uses the first 8 bytes of SHA-256, so the mapping is stable across runs, machines and library versions
+    (unlike Python's ``hash`` or polars' ``Expr.hash``).
 
     Examples:
         >>> stable_subject_id("b426b062-8273-4b93-a907-de3176c0567d")
@@ -40,9 +41,11 @@ def subject_id_from_identifiers(
     """Return an integer Patient.identifier value from one of ``system_suffixes``, if any.
 
     Examples:
-        >>> subject_id_from_identifiers([{"system": "http://mimic.mit.edu/fhir/mimic/identifier/patient", "value": "10000032"}])
+        >>> mimic = "http://mimic.mit.edu/fhir/mimic/identifier/patient"
+        >>> subject_id_from_identifiers([{"system": mimic, "value": "10000032"}])
         10000032
-        >>> subject_id_from_identifiers([{"system": "https://github.com/synthetichealth/synthea", "value": "abc"}]) is None
+        >>> synthea = "https://github.com/synthetichealth/synthea"
+        >>> subject_id_from_identifiers([{"system": synthea, "value": "abc"}]) is None
         True
         >>> subject_id_from_identifiers([{"system": "x/identifier/patient", "value": "not-an-int"}]) is None
         True
@@ -62,12 +65,14 @@ def build_patient_id_map(
 ) -> dict[str, int]:
     """Map every Patient logical id to an integer MEDS subject_id.
 
-    An integer identifier from one of ``system_suffixes`` (MIMIC-IV's ``subject_id``) is used when present; otherwise
-    the id is derived deterministically with :func:`stable_subject_id` (e.g. Synthea, whose ids are UUIDs).
+    An integer identifier from one of ``system_suffixes`` (MIMIC-IV's ``subject_id``) is used when present;
+    otherwise the id is derived deterministically with :func:`stable_subject_id` (e.g. Synthea, whose ids are
+    UUIDs).
 
     Examples:
         >>> build_patient_id_map([
-        ...     {"resourceType": "Patient", "id": "a", "identifier": [{"system": "x/identifier/patient", "value": "7"}]},
+        ...     {"resourceType": "Patient", "id": "a",
+        ...      "identifier": [{"system": "x/identifier/patient", "value": "7"}]},
         ...     {"resourceType": "Patient", "id": "b"},
         ... ]) == {"a": 7, "b": stable_subject_id("b")}
         True
@@ -89,13 +94,14 @@ def resolve_medication_references(resources: list[dict], medications: list[dict]
     """Copy ``Medication.code`` onto resources that only reference a Medication.
 
     MedicationRequest/Administration/Dispense/Statement may carry ``medicationReference`` instead of
-    ``medicationCodeableConcept`` (the MIMIC-IV FHIR demo does this for most MedicationRequests). Resolving the
-    reference lets those resources share one code config. Resources are updated in place; returns how many were
-    resolved.
+    ``medicationCodeableConcept`` (the MIMIC-IV FHIR demo does this for most MedicationRequests). Resolving
+    the reference lets those resources share one code config. Resources are updated in place; returns how many
+    were resolved.
 
     Examples:
         >>> meds = [{"resourceType": "Medication", "id": "m1", "code": {"coding": [{"code": "123"}]}}]
-        >>> reqs = [{"medicationReference": {"reference": "Medication/m1"}}, {"medicationReference": {"reference": "Medication/m2"}}]
+        >>> reqs = [{"medicationReference": {"reference": "Medication/m1"}},
+        ...         {"medicationReference": {"reference": "Medication/m2"}}]
         >>> resolve_medication_references(reqs, meds)
         1
         >>> reqs[0]["medicationCodeableConcept"]
@@ -182,8 +188,8 @@ def extract_vocab(system_url):
     """Return a short, upper-case vocabulary name for a FHIR code system URI.
 
     Examples:
-        >>> extract_vocab("http://hl7.org/fhir/sid/icd-10-cm"), extract_vocab("http://hl7.org/fhir/sid/icd-9-cm")
-        ('ICD10CM', 'ICD9CM')
+        >>> [extract_vocab(f"http://hl7.org/fhir/sid/{s}") for s in ("icd-10-cm", "icd-9-cm")]
+        ['ICD10CM', 'ICD9CM']
         >>> extract_vocab("http://loinc.org"), extract_vocab("https://loinc.org/")
         ('LOINC', 'LOINC')
         >>> extract_vocab("http://fhir.mimic.mit.edu/CodeSystem/mimic-diagnosis-icd10")
@@ -222,14 +228,15 @@ def _resolve_subject_id(resource, uuid_to_int):
 def build_event(resource, config, uuid_to_int=None, default_config=None):
     """Build one MEDS event dict from a FHIR resource dict and its event config.
 
-    ``default_config`` fills keys missing from ``config``; neither is modified. ``code`` is None when any ``col()``
-    component of the code is missing, so callers can drop (and count) such events instead of emitting partial codes
-    like ``Condition//SNOMED//``.
+    ``default_config`` fills keys missing from ``config``; neither is modified. ``code`` is None when any
+    ``col()`` component of the code is missing, so callers can drop (and count) such events instead of
+    emitting partial codes like ``Condition//SNOMED//``.
 
     Examples:
         >>> cfg = {"code": ["const(resourceType)", "const(//)", "vocab(code.coding[0].system)", "const(//)",
         ...                 "col(code.coding[0].code)"], "time": ["col(effectiveDateTime)", "col(issued)"]}
-        >>> obs = {"resourceType": "Observation", "subject": {"reference": "Patient/p"}, "issued": "2020-01-01",
+        >>> obs = {"resourceType": "Observation", "subject": {"reference": "Patient/p"},
+        ...        "issued": "2020-01-01",
         ...        "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]}}
         >>> build_event(obs, cfg, {"p": 1})
         {'code': 'Observation//LOINC//8867-4', 'time': '2020-01-01', 'subject_id': 1}
@@ -238,7 +245,11 @@ def build_event(resource, config, uuid_to_int=None, default_config=None):
     """
     event = {}
     config = {**(default_config or {}), **config}
-    rtype = resource.get("resourceType") if isinstance(resource, dict) else getattr(resource, "resource_type", None)
+    rtype = (
+        resource.get("resourceType")
+        if isinstance(resource, dict)
+        else getattr(resource, "resource_type", None)
+    )
     for key, exprs in config.items():
         if key == "subject_id":
             continue

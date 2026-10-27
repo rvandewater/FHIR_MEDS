@@ -19,7 +19,12 @@ from fhir2meds.fhir_parser import (
     load_event_config,
     load_fhir_resources_by_type,
 )
-from tests.conftest import MIMIC_PATIENT_UUID, MIMIC_SUBJECT_ID, SENTINEL, SYNTHEA_PATIENT_UUID
+from tests.conftest import (
+    MIMIC_PATIENT_UUID,
+    MIMIC_SUBJECT_ID,
+    SENTINEL,
+    SYNTHEA_PATIENT_UUID,
+)
 
 R4 = load_event_config(fhir_version="R4")
 
@@ -83,7 +88,9 @@ def test_patient_id_map_mimic_and_synthea(mimic_like_dir, synthea_like_dir):
 
 
 def test_icd_versions_do_not_collide():
-    assert extract_vocab("http://hl7.org/fhir/sid/icd-10-cm") != extract_vocab("http://hl7.org/fhir/sid/icd-9-cm")
+    assert extract_vocab("http://hl7.org/fhir/sid/icd-10-cm") != extract_vocab(
+        "http://hl7.org/fhir/sid/icd-9-cm"
+    )
 
 
 def test_mimic_like_events(mimic_like_dir):

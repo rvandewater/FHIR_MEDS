@@ -13,14 +13,15 @@ logger = logging.getLogger(__name__)
 def robust_cast_time_column(pl_df):
     """Parse FHIR date/dateTime strings in ``time`` into naive microsecond datetimes.
 
-    Partial dates (``YYYY``, ``YYYY-MM``) are padded to the first day of the period. The UTC offset is dropped, so
-    times are kept as local wall-clock time (as in MIMIC-IV). Values that cannot be parsed become null.
+    Partial dates (``YYYY``, ``YYYY-MM``) are padded to the first day of the period. The UTC offset is
+    dropped, so times are kept as local wall-clock time (as in MIMIC-IV). Values that cannot be parsed become
+    null.
 
     Examples:
-        >>> robust_cast_time_column(pl.DataFrame({"time": ["1950", "1950-03", "1950-03-04", "2148-07-07T16:18:13Z"]}))[
-        ...     "time"].to_list()  # doctest: +NORMALIZE_WHITESPACE
-        [datetime.datetime(1950, 1, 1, 0, 0), datetime.datetime(1950, 3, 1, 0, 0), datetime.datetime(1950, 3, 4, 0, 0),
-         datetime.datetime(2148, 7, 7, 16, 18, 13)]
+        >>> df = pl.DataFrame({"time": ["1950", "1950-03", "1950-03-04", "2148-07-07T16:18:13Z"]})
+        >>> robust_cast_time_column(df)["time"].to_list()  # doctest: +NORMALIZE_WHITESPACE
+        [datetime.datetime(1950, 1, 1, 0, 0), datetime.datetime(1950, 3, 1, 0, 0),
+         datetime.datetime(1950, 3, 4, 0, 0), datetime.datetime(2148, 7, 7, 16, 18, 13)]
     """
     if "time" in pl_df.columns:
         time_str = (
@@ -61,8 +62,9 @@ def cast_arrow_table_to_meds_schema(arrow_table):
 def shard_events_by_subject(events: list[dict[str, Any]], shard_size: int) -> list[list[dict[str, Any]]]:
     """Group events into shards of roughly ``shard_size`` events, never splitting a subject across shards.
 
-    MEDS requires all of a subject's events to live in a single shard. Subjects are assigned to shards in sorted
-    order, and a shard is closed once it reaches ``shard_size`` events (so a single very large subject can exceed it).
+    MEDS requires all of a subject's events to live in a single shard. Subjects are assigned to shards in
+    sorted order, and a shard is closed once it reaches ``shard_size`` events (so a single very large subject
+    can exceed it).
 
     Examples:
         >>> evs = [{"subject_id": s} for s in [2, 1, 2, 3, 1, 2]]
