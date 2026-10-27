@@ -15,8 +15,7 @@ def stable_subject_id(patient_id: str) -> int:
     """Deterministically map a FHIR Patient logical id to a non-negative int64 subject_id.
 
     Uses the first 8 bytes of SHA-256, so the mapping is stable across runs, machines and library versions
-    (unlike
-    Python's ``hash`` or polars' ``Expr.hash``).
+    (unlike Python's ``hash`` or polars' ``Expr.hash``).
 
     Examples:
         >>> stable_subject_id("b426b062-8273-4b93-a907-de3176c0567d")
@@ -57,9 +56,8 @@ def build_subject_id_map(patient_ids: list[str], identifier_subject_ids: list[in
     """Map every Patient logical id to an integer MEDS subject_id.
 
     An integer identifier (e.g. MIMIC-IV's ``subject_id``) is used when present; otherwise the id is derived
-    with
-    :func:`stable_subject_id` (e.g. Synthea, whose ids are UUIDs). Collisions are an error, never a silent
-    merge.
+    with :func:`stable_subject_id` (e.g. Synthea, whose ids are UUIDs). Collisions are an error, never a
+    silent merge.
 
     Examples:
         >>> build_subject_id_map(["a", "b"], [7, None]) == {"a": 7, "b": stable_subject_id("b")}

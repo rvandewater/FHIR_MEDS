@@ -25,8 +25,8 @@ def extract_vocab(system_url):
     """Return a short, upper-case vocabulary name for a FHIR code system URI.
 
     Examples:
-        >>> extract_vocab("http://hl7.org/fhir/sid/icd-10-cm"), extract_vocab("http://hl7.org/fhir/sid/icd-9-cm")
-        ('ICD10CM', 'ICD9CM')
+        >>> [extract_vocab(f"http://hl7.org/fhir/sid/{s}") for s in ("icd-10-cm", "icd-9-cm")]
+        ['ICD10CM', 'ICD9CM']
         >>> extract_vocab("http://loinc.org"), extract_vocab("https://loinc.org/")
         ('LOINC', 'LOINC')
         >>> extract_vocab("http://fhir.mimic.mit.edu/CodeSystem/mimic-diagnosis-icd10")
