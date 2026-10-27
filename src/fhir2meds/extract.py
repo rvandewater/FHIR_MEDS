@@ -31,9 +31,8 @@ def write_effective_spec(
     """Write the MESSY spec actually used for this run and return the tables it extracts.
 
     Tables without a matching ``<pre_MEDS_dir>/<table>.parquet`` are dropped (MEDS-Extract requires every
-    listed table
-    to exist), and the ``etl:`` block is filled in. YAML anchors are expanded so the saved file is self-
-    contained.
+    listed table to exist), and the ``etl:`` block is filled in. YAML anchors are expanded so the saved file
+    is self-contained.
 
     Examples:
         >>> import tempfile
@@ -82,8 +81,7 @@ def _cli(name: str) -> str:
 
 def _run(cmd: list[str]) -> None:
     # MEDS-Transforms launches each stage as a `MEDS_transform-stage` subprocess resolved from PATH, so make
-    # sure the
-    # current environment's scripts directory comes first even when it is not activated.
+    # sure the current environment's scripts directory comes first even when it is not activated.
     env = {
         **os.environ,
         "PATH": os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")]),

@@ -10,12 +10,12 @@ The same resources are stored in two layouts, so tests can check that both give 
 
 - `bulk/`: FHIR bulk-data export (`<Type>.000.ndjson.gz`, `Patient/<id>` references).
 - `bundles/`: one transaction Bundle per patient (`<patient id>.json.gz`, `urn:uuid:<id>` references), the layout of
-  Synthea's default FHIR exporter.
+    Synthea's default FHIR exporter.
 
 Changes from the source data:
 
 - Only the selected patients' resources are kept, plus two `AllergyIntolerance`s that reference patients missing
-  from the export (a quirk of the source dataset), to exercise dropping orphaned resources.
+    from the export (a quirk of the source dataset), to exercise dropping orphaned resources.
 - Base64 clinical notes (`DiagnosticReport.presentedForm`, `DocumentReference.content.attachment.data`) are removed.
 - `Location`, `Organization`, `Practitioner` and `PractitionerRole` are not included.
 

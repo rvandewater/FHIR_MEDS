@@ -87,7 +87,7 @@ repos:
 
   # md formatting
   - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.18
+    rev: 0.7.22
     hooks:
       - id: mdformat
         args: ["--number"]
@@ -110,7 +110,7 @@ repos:
         exclude: 'tests/demo_resources/.*\.csv'
         args:
           - --skip=logs/**,data/**,*.ipynb,*.bib,env.yml,env_cpu.yml,*.svg,poetry.lock
-          - --ignore-words-list=ehr,crate
+          - --ignore-words-list=ehr,crate,occurence
 
   # jupyter notebook cell output clearing
   - repo: https://github.com/kynan/nbstripout

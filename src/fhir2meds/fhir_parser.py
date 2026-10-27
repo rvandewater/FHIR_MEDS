@@ -1,8 +1,8 @@
 """
 fhir_parser.py
 --------------
-Generalized FHIR resource loader for the fhir2meds pipeline.
-Loads all FHIR resources by type from a directory, and provides utilities for filtering and sampling.
+Generalized FHIR resource loader for the fhir2meds pipeline. Loads all FHIR resources by type from a
+directory, and provides utilities for filtering and sampling.
 
 Supported inputs (searched recursively, in sorted order so runs are reproducible):
 
@@ -129,8 +129,7 @@ def iter_resources(fpath: str | Path, stats: Counter | None = None) -> Iterator[
     """Yield every FHIR resource (as a dict) stored in ``fpath``.
 
     Malformed lines are skipped and counted in ``stats["unparseable_lines"]``; their content is never logged,
-    as it
-    may contain protected health information.
+    as it may contain protected health information.
     """
     fpath = Path(fpath)
     stats = stats if stats is not None else Counter()
@@ -207,9 +206,8 @@ def parse_patient_reference(ref: Any, known_patient_ids: Container[str] | None =
 
     Handles relative (``Patient/123``), absolute (``https://x/fhir/Patient/123``), versioned
     (``Patient/123/_history/2``) and Bundle-internal (``urn:uuid:123``) references. Because a ``urn:uuid:``
-    reference
-    does not name the resource type, it is only accepted if ``known_patient_ids`` is not given or contains the
-    id.
+    reference does not name the resource type, it is only accepted if ``known_patient_ids`` is not given or
+    contains the id.
 
     Examples:
         >>> parse_patient_reference("Patient/123")
