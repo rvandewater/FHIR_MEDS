@@ -35,19 +35,19 @@ Rows dropped by MEDS-Extract (e.g. null time) are counted per event in
 
 ## Options
 
-| option | default | description |
-|---|---|---|
-| `root_output_dir` | required | output root |
-| `raw_input_dir` | `${root_output_dir}/raw_input` | FHIR input directory |
-| `dataset_name`, `dataset_version` | `$DATASET_NAME` / `FHIR`, `$RAW_DATASET_VERSION` / `unknown` | recorded in `dataset.json` |
-| `do_overwrite` | `false` | replace existing `pre_MEDS/` and `MEDS_cohort/` (the run refuses otherwise) |
-| `do_download`, `do_demo` | `false` | download MIMIC-IV FHIR from PhysioNet first; `do_demo=true` for the open demo (2.1.0), otherwise the credentialed release with `PHYSIONET_USER`/`PHYSIONET_PASSWORD` |
-| `fhir_version` | `R4` | `R4` or `R5` element names |
-| `keep_local_time` | `false` | keep local wall-clock time instead of converting offsets to UTC |
-| `subject_id_identifier_suffixes` | `["/identifier/patient"]` | identifier systems whose integer value becomes `subject_id` |
-| `etl_options` | `null` | MEDS-Extract `etl:` options, e.g. `{n_subjects_per_shard:1000,split_fracs:{train:0.8,tuning:0.1,held_out:0.1}}` |
-| `stage_runner_fp` | `null` | MEDS-Transforms stage runner YAML, e.g. for joblib parallelism (`pip install fhir2meds[local_parallelism]`) |
-| `max_events` | `null` | read at most N resources per type (debugging) |
+| option                            | default                                                      | description                                                                                                                                                          |
+| --------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `root_output_dir`                 | required                                                     | output root                                                                                                                                                          |
+| `raw_input_dir`                   | `${root_output_dir}/raw_input`                               | FHIR input directory                                                                                                                                                 |
+| `dataset_name`, `dataset_version` | `$DATASET_NAME` / `FHIR`, `$RAW_DATASET_VERSION` / `unknown` | recorded in `dataset.json`                                                                                                                                           |
+| `do_overwrite`                    | `false`                                                      | replace existing `pre_MEDS/` and `MEDS_cohort/` (the run refuses otherwise)                                                                                          |
+| `do_download`, `do_demo`          | `false`                                                      | download MIMIC-IV FHIR from PhysioNet first; `do_demo=true` for the open demo (2.1.0), otherwise the credentialed release with `PHYSIONET_USER`/`PHYSIONET_PASSWORD` |
+| `fhir_version`                    | `R4`                                                         | `R4` or `R5` element names                                                                                                                                           |
+| `keep_local_time`                 | `false`                                                      | keep local wall-clock time instead of converting offsets to UTC                                                                                                      |
+| `subject_id_identifier_suffixes`  | `["/identifier/patient"]`                                    | identifier systems whose integer value becomes `subject_id`                                                                                                          |
+| `etl_options`                     | `null`                                                       | MEDS-Extract `etl:` options, e.g. `{n_subjects_per_shard:1000,split_fracs:{train:0.8,tuning:0.1,held_out:0.1}}`                                                      |
+| `stage_runner_fp`                 | `null`                                                       | MEDS-Transforms stage runner YAML, e.g. for joblib parallelism (`pip install fhir2meds[local_parallelism]`)                                                          |
+| `max_events`                      | `null`                                                       | read at most N resources per type (debugging)                                                                                                                        |
 
 ## Examples
 

@@ -2,10 +2,10 @@
 
 There are two configuration files, one for each stage of the [pipeline](design.md):
 
-| file | controls |
-|---|---|
+| file                                 | controls                                                   |
+| ------------------------------------ | ---------------------------------------------------------- |
 | `src/fhir2meds/configs/flatten.yaml` | which FHIR elements are read into the flat pre-MEDS tables |
-| `src/fhir2meds/configs/messy.yaml` | which MEDS events are built from those tables |
+| `src/fhir2meds/configs/messy.yaml`   | which MEDS events are built from those tables              |
 
 ## Reading another element or resource type
 
@@ -15,10 +15,10 @@ indices:
 ```yaml
 R4:
   Goal:
-    code: ["description"]          # CodeableConcept or Coding paths
-    start: ["startDate", "statusDate"]
-    end: ["target[0].dueDate"]
-    value_text: ["lifecycleStatus"]
+    code: [description]            # CodeableConcept or Coding paths
+    start: [startDate, statusDate]
+    end: ['target[0].dueDate']
+    value_text: [lifecycleStatus]
     extra:                          # extra string columns available to messy.yaml
       achievement: achievementStatus.coding[0].code
 ```
@@ -47,7 +47,7 @@ To put units in Observation codes instead of in the `unit` column:
 ```yaml
 Observation:
   observation:
-    code: 'f"{$resource_type}//{$code_vocab}//{$code}//{$value_unit ?? ''UNK''}"'
+    code: f"{$resource_type}//{$code_vocab}//{$code}//{$value_unit ?? 'UNK'}"
     time: $start
     numeric_value: $value_num
     text_value: $value_text
