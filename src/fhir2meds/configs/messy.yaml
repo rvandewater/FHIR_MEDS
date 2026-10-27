@@ -1,0 +1,83 @@
+# MEDS-Extract (>= 0.7) event specification ("MESSY") for the flat tables written by fhir2meds' pre-MEDS stage.
+#
+# Every top-level key below names a pre-MEDS table (<pre_MEDS_dir>/<ResourceType>.parquet). At run time fhir2meds
+# drops tables that the input did not produce and fills in the `etl:` block (dataset name/version), then saves the
+# effective spec next to the pre-MEDS tables for provenance.
+#
+# Values are dftly expressions: `$col` is a column, f"..." interpolates, `??` coalesces. All times were already
+# parsed to naive (UTC by default) datetimes by pre-MEDS, so no format casts are needed. Rows whose code or time
+# resolve to null are dropped by MEDS-Extract, which logs a per-event count.
+#
+# Codes follow `<ResourceType>//<VOCAB>//<code>`, e.g. `Observation//LOINC//8867-4`, `Condition//ICD10CM//N179`.
+
+etl:
+  dataset_name: FHIR
+  raw_dataset_version: unknown
+
+_defaults:
+  subject_id: $subject_id
+
+Patient:
+  birth:
+    code: MEDS_BIRTH
+    time: $birth_date
+  death:
+    code: MEDS_DEATH
+    time: $deceased_datetime
+  gender:
+    code: 'f"GENDER//{$gender}"'
+    time: null
+  race:
+    code: 'f"RACE//{$race}"'
+    time: null
+  ethnicity:
+    code: 'f"ETHNICITY//{$ethnicity}"'
+    time: null
+
+Encounter:
+  start: &coded_event
+    code: 'f"{$resource_type}//{$code_vocab}//{$code}"'
+    time: $start
+    numeric_value: $value_num
+    text_value: $value_text
+    unit: $value_unit
+    _metadata:
+      _self:
+        description: $code_display
+  end:
+    code: 'f"{$resource_type}_END//{$code_vocab}//{$code}"'
+    time: $end
+    _metadata:
+      _self:
+        description: $code_display
+
+Condition:
+  condition: *coded_event
+Observation:
+  observation: *coded_event
+DiagnosticReport:
+  diagnostic_report: *coded_event
+Procedure:
+  procedure: *coded_event
+ServiceRequest:
+  service_request: *coded_event
+MedicationRequest:
+  medication_request: *coded_event
+MedicationAdministration:
+  medication_administration: *coded_event
+MedicationDispense:
+  medication_dispense: *coded_event
+MedicationStatement:
+  medication_statement: *coded_event
+Immunization:
+  immunization: *coded_event
+AllergyIntolerance:
+  allergy_intolerance: *coded_event
+Specimen:
+  specimen: *coded_event
+CarePlan:
+  care_plan: *coded_event
+ImagingStudy:
+  imaging_study: *coded_event
+DocumentReference:
+  document_reference: *coded_event

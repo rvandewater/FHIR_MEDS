@@ -1,8 +1,8 @@
 """
 fhir_parser.py
 --------------
-Generalized FHIR resource loader for the fhir2meds pipeline.
-Loads all FHIR resources by type from a directory, and provides utilities for filtering and sampling.
+Generalized FHIR resource loader for the fhir2meds pipeline. Loads all FHIR resources by type from a
+directory, and provides utilities for filtering and sampling.
 
 Supported inputs (searched recursively, in sorted order so runs are reproducible):
 
@@ -16,19 +16,14 @@ Bundles are unpacked recursively, so the resources inside them are treated exact
 import gzip
 import json
 import logging
-import os
+import re
 from collections import Counter, defaultdict
 from collections.abc import Container, Iterator
 from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from omegaconf import OmegaConf
-
 logger = logging.getLogger(__name__)
-
-# Hydra config loading will be handled by the main entrypoint, but allow direct config loading for testing
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "configs", "event_configs.yaml")
 
 # fhir.resources >= 7 ships R5 as the default namespace and R4B as the closest available R4 model.
 FHIR_VERSION_MODULES = {
@@ -39,17 +34,39 @@ FHIR_VERSION_MODULES = {
 FHIR_SUFFIXES = (".ndjson", ".ndjson.gz", ".json", ".json.gz")
 
 
-def load_event_config(config_path: str = CONFIG_PATH, fhir_version: str = "R4") -> dict[str, Any]:
-    cfg = OmegaConf.load(config_path)
-    if fhir_version not in cfg:
-        raise ValueError(f"FHIR version {fhir_version} not found in config")
-    section = OmegaConf.to_container(cfg[fhir_version], resolve=True)
-    if not isinstance(section, dict):
-        raise TypeError(f"Config section for {fhir_version} must be a dict, got {type(section)}")
-    # Ensure all keys are strings
-    if not all(isinstance(k, str) for k in section.keys()):
-        raise TypeError(f"All config keys for {fhir_version} must be strings")
-    return dict(section)  # type: ignore
+def extract_path(resource, path):
+    """
+    Resolve a dotted path like 'code.coding[0].code' on a FHIR resource object or dict.
+
+    Examples:
+        >>> r = {"code": {"coding": [{"code": "1234-5"}]}, "collection": {"collectedDateTime": "2020"}}
+        >>> extract_path(r, "code.coding[0].code")
+        '1234-5'
+        >>> extract_path(r, "code[coding][0][code]")
+        '1234-5'
+        >>> extract_path(r, "collection.collectedDateTime")
+        '2020'
+        >>> extract_path(r, "code.coding[3].code") is None
+        True
+    """
+    parts = re.split(r"\.|\[|\]", path)
+    obj = resource
+    for part in parts:
+        if not part:
+            continue
+        # Check if part is a numeric index for list access
+        if part.isdigit():
+            try:
+                obj = obj[int(part)]
+            except (IndexError, TypeError, KeyError):
+                return None
+        elif isinstance(obj, dict):
+            obj = obj.get(part)
+        else:
+            obj = getattr(obj, part, None)
+        if obj is None:
+            return None
+    return obj
 
 
 def get_fhir_resource_class(resource_type: str, fhir_version: str = "R4"):
@@ -140,27 +157,27 @@ def iter_resources(fpath: str | Path, stats: Counter | None = None) -> Iterator[
 
 def load_fhir_resources_by_type(
     fhir_dir: str,
-    event_config: dict[str, Any],
+    resource_types: Container[str] | None = None,
     fhir_version: str = "R4",
     validate_with_fhir_resources: bool = False,
 ) -> dict[str, list[Any]]:
     """
-    Load and parse FHIR resources by type using fhir.resources and config.
-    Only loads resource types specified in the config.
+    Load FHIR resources into memory, grouped by type. Intended for inspection and tests; the pipeline itself
+    streams resources (see ``pre_MEDS``).
+    Only loads ``resource_types`` (all types if None).
     If validate_with_fhir_resources is False, loads raw dicts instead of validated objects.
 
     Resources are de-duplicated on ``(resourceType, id)``: some exports (e.g. the MIMIC-IV FHIR demo's
     ``Specimen.ndjson`` and ``SpecimenLab.ndjson``) ship the same resources in more than one file.
     """
     resources = defaultdict(list)
-    resource_types = set(event_config["resources"])
     seen: set[tuple[str, str]] = set()
     stats: Counter = Counter()
     for fpath in iter_fhir_files(fhir_dir):
         logger.info(f"Parsing file {fpath}")
         for data in iter_resources(fpath, stats):
             rtype = data.get("resourceType")
-            if rtype not in resource_types:
+            if resource_types is not None and rtype not in resource_types:
                 stats["skipped_unconfigured_type"] += 1
                 continue
             rid = data.get("id")
@@ -274,10 +291,10 @@ def filter_subject_resources_by_type(resources_by_type: dict[str, list[Any]]) ->
 
 
 def get_sample_resources_by_type(
-    fhir_dir: str, event_config: dict, fhir_version: str = "R4", n: int = 3
+    fhir_dir: str, resource_types: Container[str] | None = None, fhir_version: str = "R4", n: int = 3
 ) -> dict[str, list[Any]]:
     """
     Return up to n samples for each resource type found in the directory.
     """
-    all_resources = load_fhir_resources_by_type(fhir_dir, event_config, fhir_version)
+    all_resources = load_fhir_resources_by_type(fhir_dir, resource_types, fhir_version)
     return {rtype: resources[:n] for rtype, resources in all_resources.items()}

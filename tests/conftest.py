@@ -148,6 +148,35 @@ def mimic_like_resources() -> dict[str, list[dict]]:
                 "recordedDate": "2180-05-08",
             },
         ],
+        "MimicEncounter.ndjson.gz": [
+            {
+                "resourceType": "Encounter",
+                "id": "enc-1",
+                "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "IMP"},
+                "type": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://mimic.mit.edu/fhir/mimic/CodeSystem/admission-type",
+                                "code": "URGENT",
+                            }
+                        ]
+                    }
+                ],
+                "subject": subject,
+                "period": {"start": "2180-05-06T22:00:00-04:00", "end": "2180-05-09T14:00:00-04:00"},
+            }
+        ],
+        "MimicConditionNoTime.ndjson.gz": [
+            # MIMIC diagnoses have no time of their own; they are dated at the encounter's discharge.
+            {
+                "resourceType": "Condition",
+                "id": "cond-3",
+                "code": {"coding": [{"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "I10"}]},
+                "subject": subject,
+                "encounter": {"reference": "Encounter/enc-1"},
+            }
+        ],
         # The MIMIC-IV FHIR demo ships identical Specimen and SpecimenLab files.
         "MimicSpecimen.ndjson.gz": [specimen],
         "MimicSpecimenLab.ndjson.gz": [specimen],

@@ -13,7 +13,6 @@ import pytest
 )
 def test_e2e():
     with TemporaryDirectory() as temp_dir:
-
         root = Path(temp_dir)
 
         do_overwrite = True
@@ -41,14 +40,14 @@ def test_e2e():
         )
         assert command_out.returncode == 0, err_message
 
-        data_path = root / "data"
+        data_path = root / "MEDS_cohort" / "data"
         data_files = list(data_path.glob("*.parquet")) + list(data_path.glob("**/*.parquet"))
 
         all_files = [x for x in data_path.glob("**/*") if x.is_file()]
 
         assert len(data_files) > 0, f"No data files found in {data_path}; found {all_files}"
 
-        metadata_path = root / "metadata"
+        metadata_path = root / "MEDS_cohort" / "metadata"
         all_files = [x for x in metadata_path.glob("**/*") if x.is_file()]
 
         dataset_metadata = metadata_path / "dataset.json"

@@ -2,27 +2,38 @@ defaults:
   - _self_
 
 root_output_dir: ???
-tables_to_ignore: null
 
 raw_input_dir: ${root_output_dir}/raw_input
-#pre_MEDS_dir: ${root_output_dir}/pre_MEDS
+pre_MEDS_dir: ${root_output_dir}/pre_MEDS
 MEDS_cohort_dir: ${root_output_dir}/MEDS_cohort
-
-stage_runner_fp: null
 
 do_download: False
 do_overwrite: False
 do_demo: False
-shard_size: 10000  # Number of rows per Parquet shard
-max_events: null  # Maximum number of events to process per resource type (for debugging)
-verbose: false  # Enable verbose logging
-overwrite: false  # Overwrite existing output directory
+
+# Recorded in metadata/dataset.json.
+dataset_name: ${oc.env:DATASET_NAME,FHIR}
+dataset_version: ${oc.env:RAW_DATASET_VERSION,unknown}
+
+fhir_version: R4 # R4 or R5; selects the section of configs/flatten.yaml
+# Patient.identifier systems (suffix match) whose integer value is used as subject_id (MIMIC-IV: /identifier/patient).
+# Patients without one get a stable SHA-256-derived id.
+subject_id_identifier_suffixes: ["/identifier/patient"]
+# By default timestamps with a UTC offset are converted to UTC. Set to true to keep local wall-clock time instead.
+keep_local_time: false
+max_events: null # Maximum number of resources per type to read (for debugging)
+
+# Optional MEDS-Extract `etl:` options, e.g. {n_subjects_per_shard: 1000, split_fracs: {train: 0.8, ...}}.
+etl_options: null
+# Optional MEDS-Transforms stage runner YAML (e.g. joblib parallelism), forwarded to meds-extract-run.
+stage_runner_fp: null
+
 log_dir: ${root_output_dir}/.logs
 
 # Hydra
 hydra:
   job:
-    name: full_extraction_${now:%Y-%m-%d_%H-%M-%S}
+    name: fhir2meds_${now:%Y-%m-%d_%H-%M-%S}
   run:
     dir: ${log_dir}
   sweep:
