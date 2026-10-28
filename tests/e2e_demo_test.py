@@ -1,12 +1,18 @@
+import os
 import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 
-# @pytest.mark.skip(reason="If you have a demo dataset, re-enable this test in your downstream repositories.")
+
+@pytest.mark.skipif(
+    os.environ.get("FHIR_MEDS_RUN_DOWNLOAD_TESTS") != "1",
+    reason="Downloads the MIMIC-IV FHIR demo from PhysioNet; set FHIR_MEDS_RUN_DOWNLOAD_TESTS=1 to run.",
+)
 def test_e2e():
     with TemporaryDirectory() as temp_dir:
-
         root = Path(temp_dir)
 
         do_overwrite = True
@@ -14,7 +20,7 @@ def test_e2e():
         do_download = True
 
         command_parts = [
-            "python -m OMOP_MEDS.__main__",
+            f"{sys.executable} -m fhir2meds",
             f"root_output_dir={str(root.resolve())}",
             f"do_download={do_download}",
             f"do_overwrite={do_overwrite}",

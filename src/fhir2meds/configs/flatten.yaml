@@ -1,0 +1,129 @@
+# How pre-MEDS flattens nested FHIR resources into one flat parquet table per resource type.
+#
+# Every table gets the same core columns, so a single MESSY block shape (configs/messy.yaml) fits all of them:
+#   resource_type, resource_id, patient_id, subject_id, encounter_id,
+#   code_system, code_vocab, code, code_display, start, end, value_num, value_unit, value_text
+#
+# Per resource type, each key lists FHIR paths (dotted, with [n] list indices) that are tried in order; the first
+# one that resolves wins:
+#   code:            CodeableConcept or Coding paths; the first coding with a `code` is used.
+#   start / end:     date/dateTime paths. Partial dates are padded; offsets are converted to UTC (see main.yaml).
+#   value_num / value_unit / value_text: scalar paths.
+#   value: observation  -> use Observation-style value[x] handling and explode `component` into extra rows.
+#   medication_ref:  Reference paths to a Medication, used when `code` is missing (resolved via Medication.code).
+#   start_fallback:  encounter_start | encounter_end; used when no `start` path resolves (e.g. MIMIC diagnoses).
+#   extra:           {column: path} extra string columns, available to the MESSY spec.
+#
+# Resource types that are not listed here are ignored. Patient is handled in code (demographics, birth, death).
+R4: &R4
+  Encounter:
+    code: ["type[0]", "serviceType", "class"]
+    start: ["period.start"]
+    end: ["period.end"]
+    extra:
+      class_code: class.code
+  Condition:
+    code: ["code"]
+    start: ["onsetDateTime", "onsetPeriod.start", "recordedDate"]
+    end: ["abatementDateTime", "abatementPeriod.end"]
+    start_fallback: encounter_end
+  Observation:
+    code: ["code"]
+    start:
+      - effectiveDateTime
+      - effectivePeriod.start
+      - effectiveInstant
+      - issued
+    value: observation
+  DiagnosticReport:
+    code: ["code"]
+    start: ["effectiveDateTime", "effectivePeriod.start", "issued"]
+  Procedure:
+    code: ["code"]
+    start: ["performedDateTime", "performedPeriod.start"]
+    end: ["performedPeriod.end"]
+  ServiceRequest:
+    code: ["code"]
+    start: ["occurrenceDateTime", "occurrencePeriod.start", "authoredOn"]
+  MedicationRequest:
+    code: ["medicationCodeableConcept"]
+    medication_ref: ["medicationReference.reference"]
+    start: ["authoredOn"]
+    value_num: ["dosageInstruction[0].doseAndRate[0].doseQuantity.value"]
+    value_unit: ["dosageInstruction[0].doseAndRate[0].doseQuantity.unit"]
+  MedicationAdministration:
+    code: ["medicationCodeableConcept"]
+    medication_ref: ["medicationReference.reference"]
+    start: ["effectiveDateTime", "effectivePeriod.start"]
+    end: ["effectivePeriod.end"]
+    value_num: ["dosage.dose.value"]
+    value_unit: ["dosage.dose.unit", "dosage.dose.code"]
+  MedicationDispense:
+    code: ["medicationCodeableConcept"]
+    medication_ref: ["medicationReference.reference"]
+    start: ["whenHandedOver", "whenPrepared"]
+    value_num: ["quantity.value"]
+    value_unit: ["quantity.unit"]
+  MedicationStatement:
+    code: ["medicationCodeableConcept"]
+    medication_ref: ["medicationReference.reference"]
+    start: ["effectiveDateTime", "effectivePeriod.start", "dateAsserted"]
+  Immunization:
+    code: ["vaccineCode"]
+    start: ["occurrenceDateTime", "recorded"]
+  AllergyIntolerance:
+    code: ["code"]
+    start: ["onsetDateTime", "onsetPeriod.start", "recordedDate"]
+  Specimen:
+    code: ["type"]
+    start:
+      - collection.collectedDateTime
+      - collection.collectedPeriod.start
+      - receivedTime
+  CarePlan:
+    code: ["category[1]", "category[0]"]
+    start: ["period.start", "created"]
+    end: ["period.end"]
+  ImagingStudy:
+    code: ["procedureCode[0]", "series[0].modality"]
+    start: ["started"]
+  DocumentReference:
+    code: ["type"]
+    start: ["context.period.start", "date"]
+
+R5:
+  <<: *R4
+  Encounter:
+    code: ["type[0]", "serviceType[0].concept", "class[0]"]
+    start: ["actualPeriod.start"]
+    end: ["actualPeriod.end"]
+    extra:
+      class_code: class[0].coding[0].code
+  Procedure:
+    code: ["code"]
+    start: ["occurrenceDateTime", "occurrencePeriod.start"]
+    end: ["occurrencePeriod.end"]
+  MedicationRequest:
+    code: ["medication.concept"]
+    medication_ref: ["medication.reference.reference"]
+    start: ["authoredOn"]
+    value_num: ["dosageInstruction[0].doseAndRate[0].doseQuantity.value"]
+    value_unit: ["dosageInstruction[0].doseAndRate[0].doseQuantity.unit"]
+  MedicationAdministration:
+    code: ["medication.concept"]
+    medication_ref: ["medication.reference.reference"]
+    # R5 spells this element "occurence[x]".
+    start: ["occurenceDateTime", "occurencePeriod.start"]
+    end: ["occurencePeriod.end"]
+    value_num: ["dosage.dose.value"]
+    value_unit: ["dosage.dose.unit", "dosage.dose.code"]
+  MedicationDispense:
+    code: ["medication.concept"]
+    medication_ref: ["medication.reference.reference"]
+    start: ["whenHandedOver", "whenPrepared"]
+    value_num: ["quantity.value"]
+    value_unit: ["quantity.unit"]
+  MedicationStatement:
+    code: ["medication.concept"]
+    medication_ref: ["medication.reference.reference"]
+    start: ["effectiveDateTime", "effectivePeriod.start", "dateAsserted"]
