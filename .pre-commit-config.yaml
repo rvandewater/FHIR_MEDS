@@ -12,6 +12,7 @@ repos:
       - id: end-of-file-fixer
       - id: check-docstring-first
       - id: check-yaml
+        args: [--unsafe] # mkdocs.yml uses !!python/name tags
       - id: debug-statements
       - id: detect-private-key
       - id: check-executables-have-shebangs
@@ -91,16 +92,18 @@ repos:
     hooks:
       - id: mdformat
         args: ["--number"]
+        # Pinned so local and CI runs format identically. mdformat-gfm already provides tables and
+        # mdformat-mkdocs admonitions; adding mdformat-tables/mdformat-admon makes renderers collide.
+        # shfmt-py ships the shfmt binary that mdformat-shfmt needs for bash blocks.
         additional_dependencies:
-          - mdformat-gfm
-          - mdformat-tables
-          - mdformat_frontmatter
-          - mdformat-black
-          - mdformat-config
-          - mdformat-shfmt
-          - mdformat-mkdocs
-          - mdformat-toc
-          - mdformat-admon
+          - mdformat-gfm==1.0.0
+          - mdformat_frontmatter==2.1.2
+          - mdformat-black==0.1.1
+          - mdformat-config==0.2.1
+          - mdformat-shfmt==0.2.0
+          - shfmt-py==4.2.0
+          - mdformat-mkdocs==5.2.1
+          - mdformat-toc==0.5.0
 
   # word spelling linter
   - repo: https://github.com/codespell-project/codespell
