@@ -24,6 +24,7 @@ validation = ["fhir.resources>=7.1"]
 tests = ["pytest", "pytest-cov", "fhir.resources>=7.1"]
 dev = ["pre-commit<4"]
 local_parallelism = ["hydra-joblib-launcher"]
+docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.26"]
 
 [tool.setuptools_scm]
 
