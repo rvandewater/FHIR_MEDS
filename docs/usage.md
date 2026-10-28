@@ -55,7 +55,7 @@ MIMIC-IV FHIR demo, downloaded from PhysioNet:
 
 ```bash
 fhir2meds root_output_dir=mimic_demo do_download=true do_demo=true \
-  dataset_name=MIMIC_IV_FHIR_DEMO dataset_version=2.1.0
+	dataset_name=MIMIC_IV_FHIR_DEMO dataset_version=2.1.0
 ```
 
 A Synthea output directory (default per-patient Bundles):

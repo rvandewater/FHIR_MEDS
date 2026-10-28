@@ -76,11 +76,11 @@ To generate a deterministic sample (Synthea ≥ 4.0 requires Java 17+):
 ```bash
 curl -LO https://github.com/synthetichealth/synthea/releases/download/v4.0.0/synthea-with-dependencies.jar
 java -jar synthea-with-dependencies.jar -s 42 -cs 42 -r 20250101 -p 10 \
-  --exporter.baseDirectory ./synthea_out \
-  --exporter.fhir.bulk_data true \
-  --exporter.fhir.excluded_resources Claim,ExplanationOfBenefit,Provenance \
-  --exporter.hospital.fhir.export false --exporter.practitioner.fhir.export false \
-  Massachusetts
+	--exporter.baseDirectory ./synthea_out \
+	--exporter.fhir.bulk_data true \
+	--exporter.fhir.excluded_resources Claim,ExplanationOfBenefit,Provenance \
+	--exporter.hospital.fhir.export false --exporter.practitioner.fhir.export false \
+	Massachusetts
 fhir2meds raw_input_dir=synthea_out/fhir root_output_dir=synthea_meds dataset_name=SYNTHEA
 ```
 

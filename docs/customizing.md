@@ -57,5 +57,6 @@ Tables listed in `messy.yaml` that the input doesn't contain are dropped at run 
 saved to `pre_MEDS/messy.yaml`.
 
 !!! tip
+
     Inspect `pre_MEDS/<ResourceType>.parquet` to see which columns are available, and rerun only the MEDS-Extract
     stage with `meds-extract-run spec=output/pre_MEDS/messy.yaml input_dir=output/pre_MEDS output_dir=... do_download=false`.
