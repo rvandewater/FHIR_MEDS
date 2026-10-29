@@ -64,11 +64,13 @@ the Synthea fixtures or the MIMIC-IV FHIR demo — rather than only describing t
 
 ## Release
 
-The version is the static `version` in `pyproject.toml`. Bump and commit it before creating the matching
-tag:
+The version is the static `version` in `pyproject.toml`. Release from an up-to-date `main` with a clean
+working tree, and bump and commit the version before creating the matching tag:
 
 ```bash
-uv version --bump patch # 0.0.3 → 0.0.4; use minor or major for the other components
+git switch main
+git pull --ff-only
+uv version --bump patch # 0.2.0 → 0.2.1; use minor or major for the other components
 uv run pytest
 uv build --clear
 git add pyproject.toml uv.lock
@@ -80,3 +82,6 @@ git push origin main "$VERSION"
 
 Tags are the bare version (`0.1.0`, not `v0.1.0`). The tag workflow rejects a tag that does not match
 `pyproject.toml`, then publishes the distributions to PyPI and creates the GitHub release.
+
+Run the block once per release. A tag that has been pushed is already published to PyPI, and PyPI never
+accepts the same version twice, so if a later step fails, fix that step instead of rerunning the block.
