@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools-scm>=8.0", "wheel"]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "fhir2meds"
-dynamic = ["version"]
+version = "0.2.0"
 description = "Convert HL7 FHIR (R4/R5) resources to the MEDS format with MEDS-Extract."
 authors = [ { name = "Robin P. van de Water", email = "robin.vandewater@hpi.de" } ]
 readme = "README.md"
@@ -26,7 +26,8 @@ dev = ["pre-commit<4"]
 local_parallelism = ["hydra-joblib-launcher"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.26"]
 
-[tool.setuptools_scm]
+[tool.setuptools.package-data]
+fhir2meds = ["configs/*.yaml"]
 
 [project.scripts]
 fhir2meds = "fhir2meds.__main__:main"
