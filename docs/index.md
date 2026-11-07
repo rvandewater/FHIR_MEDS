@@ -31,7 +31,8 @@ flowchart LR
 2. **MEDS-Extract** builds events from those tables with a declarative spec, then shards, splits and writes MEDS
    metadata.
 3. **suMEDS** adds vocabulary parents (and titles where FHIR has no `display`) to `metadata/codes.parquet`, in
-   place. `do_enrich=false` skips it.
+   place, and records that in `metadata/dataset.json`. A failure (e.g. without internet) does not fail the run.
+   `do_enrich=false` skips it.
 
 The reasoning behind each step is in [Design choices](design.md). To change which FHIR elements are read or which
 events are produced, see [Customizing the mapping](customizing.md).

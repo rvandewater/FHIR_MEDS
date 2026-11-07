@@ -29,7 +29,9 @@ etl_options: null
 stage_runner_fp: null
 
 # Enrich MEDS_cohort/metadata/codes.parquet in place with suMEDS-enrich and the rules registered as `FHIR`
-# (src/fhir2meds/sumeds_rules.yaml). enrich_args are further suMEDS-enrich options, e.g.
+# (src/fhir2meds/sumeds_rules.yaml). A failed enrichment (e.g. no internet) leaves the output as it was, records
+# that in metadata/dataset.json and does not fail the run; `suMEDS-enrich MEDS_COHORT_DIR` enriches it later.
+# enrich_args are further suMEDS-enrich options, e.g. [--strict] to fail the run instead,
 # [--athena-csv,/path/to/athena] or [--offline].
 do_enrich: true
 enrich_args: []

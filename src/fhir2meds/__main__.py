@@ -27,9 +27,14 @@ def main(cfg: DictConfig) -> None:
     MEDS_cohort_dir = Path(cfg.MEDS_cohort_dir)
 
     # suMEDS-enrich arguments; a later --rules in enrich_args overrides the packaged rules. Checked now, not
-    # after the pipeline has run.
+    # after the pipeline has run. A failed enrichment (e.g. no internet) leaves codes.parquet as it was,
+    # records that in metadata/dataset.json and exits 0, as `suMEDS-extract` does; `enrich_args=[--strict]`
+    # fails instead.
     codes_fp = str(MEDS_cohort_dir.resolve() / "metadata" / "codes.parquet")
-    enrich_argv = [codes_fp, "-o", codes_fp, "--rules", "FHIR", *map(str, cfg.enrich_args)]
+    enrich_args = [str(arg) for arg in cfg.enrich_args]
+    enrich_argv = [codes_fp, "-o", codes_fp, "--rules", "FHIR", *enrich_args]
+    if {"--soft-fail", "--strict"}.isdisjoint(enrich_args):
+        enrich_argv.append("--soft-fail")
     if cfg.do_enrich:
         build_enrich_parser().parse_args(enrich_argv)
 
@@ -69,7 +74,8 @@ def main(cfg: DictConfig) -> None:
     )
     run_meds_extract(spec_fp, pre_MEDS_dir, MEDS_cohort_dir, __version__, cfg.get("stage_runner_fp"))
 
-    # Step 3: vocabulary titles and parents for metadata/codes.parquet, in place (see sumeds_rules.yaml).
+    # Step 3: vocabulary titles and parents for metadata/codes.parquet, in place (see sumeds_rules.yaml),
+    # recorded in metadata/dataset.json.
     if cfg.do_enrich:
         enrich_main(enrich_argv)
     logger.info(f"Done. MEDS cohort written to {MEDS_cohort_dir}.")

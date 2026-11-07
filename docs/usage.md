@@ -49,7 +49,7 @@ Rows dropped by MEDS-Extract (e.g. null time) are counted per event in
 | `stage_runner_fp`                 | `null`                                                       | MEDS-Transforms stage runner YAML, e.g. for joblib parallelism (`pip install fhir2meds[local_parallelism]`)                                                          |
 | `max_events`                      | `null`                                                       | read at most N resources per type (debugging)                                                                                                                        |
 | `do_enrich`                       | `true`                                                       | enrich `metadata/codes.parquet` in place with suMEDS and the packaged `FHIR` rules: vocabulary parents, and titles where FHIR has no `display`                       |
-| `enrich_args`                     | `[]`                                                         | further `suMEDS-enrich` options, e.g. `[--athena-csv,/path/to/athena]` (SNOMED, RxNorm, NDC, ... and OMOP concept ids) or `[--offline]`                              |
+| `enrich_args`                     | `[]`                                                         | further `suMEDS-enrich` options, e.g. `[--athena-csv,/path/to/athena]` (SNOMED, RxNorm, NDC, ... and OMOP concept ids), `[--offline]` or `[--strict]`                |
 
 ## Examples
 
@@ -72,6 +72,10 @@ Also look codes up in your own OHDSI Athena download, or skip the suMEDS step:
 fhir2meds raw_input_dir=synthea/output/fhir root_output_dir=synthea_meds "enrich_args=[--athena-csv,/path/to/athena]"
 fhir2meds raw_input_dir=synthea/output/fhir root_output_dir=synthea_meds do_enrich=false
 ```
+
+A failed enrichment (e.g. without internet) leaves `metadata/codes.parquet` as the ETL wrote it and does not fail
+the run (`enrich_args=[--strict]` fails it instead); `metadata/dataset.json` records it as
+`sumeds_enrichment.enriched: false`. Enrich it later with `suMEDS-enrich synthea_meds/MEDS_cohort`.
 
 Very small datasets (fewer than ~3 patients) cannot populate all three default splits:
 

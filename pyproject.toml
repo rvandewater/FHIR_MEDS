@@ -12,10 +12,12 @@ requires-python = ">=3.11.4,<3.14"
 # MEDS-Extract and suMEDS are capped below their next minor: their 0.x minors are breaking (MESSY syntax,
 # runner CLI, rules format), so raise the caps deliberately when migrating. The `[download]` extra provides
 # `meds-extract-download` (do_download=true). suMEDS enriches metadata/codes.parquet as the converter's
-# last step, with the rules registered below.
+# last step, with the rules registered below. 0.6.1 adds the soft fail (`--soft-fail`: a failed enrichment,
+# e.g. on a hospital server without internet, leaves the output as it was and exits 0) and the
+# `sumeds_enrichment` record in metadata/dataset.json.
 dependencies = [
     "MEDS-extract[download]>=0.8.0,<0.9",
-    "sumeds>=0.6,<0.7",
+    "sumeds>=0.6.1,<0.7",
     "meds~=0.4.0",
     "polars>=1.38,<2",
     "pyarrow",

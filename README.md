@@ -38,7 +38,8 @@ The pipeline has three steps:
     train/tuning/held_out and write MEDS metadata.
 3. **suMEDS** ([`suMEDS-enrich`](https://github.com/rvandewater/SumMEDS) 0.6, on by default): add vocabulary
     titles and parents to `metadata/codes.parquet` (see
-    [Enriching code metadata with suMEDS](#enriching-code-metadata-with-sumeds)).
+    [Enriching code metadata with suMEDS](#enriching-code-metadata-with-sumeds)). A failed enrichment (e.g.
+    without internet) does not fail the run.
 
 Documentation, including the [design choices](https://fhir2meds.readthedocs.io/en/latest/design/) behind the
 mapping and a [review of Synthea datasets](https://fhir2meds.readthedocs.io/en/latest/synthea/) for testing, is at
@@ -114,14 +115,22 @@ options go in `enrich_args`:
 fhir2meds raw_input_dir=path/to/fhir root_output_dir=output "enrich_args=[--athena-csv,/path/to/athena]"
 # Use only already cached packs (no network):
 fhir2meds raw_input_dir=path/to/fhir root_output_dir=output "enrich_args=[--offline]"
+# Fail the run if the enrichment fails:
+fhir2meds raw_input_dir=path/to/fhir root_output_dir=output "enrich_args=[--strict]"
 # The plain ETL, without suMEDS:
 fhir2meds raw_input_dir=path/to/fhir root_output_dir=output do_enrich=false
 ```
 
-To enrich the `codes.parquet` of an existing build instead:
+Enrichment is on by default and soft-fails: if it fails, for example on a hospital server without internet access,
+`metadata/codes.parquet` stays as the ETL wrote it, a warning gives the command to enrich it later, and the run
+still succeeds. Whether a build was enriched is recorded in `metadata/dataset.json`, under
+`sumeds_enrichment.enriched` (`true`, or `false` with the `error` and the `retry` command). To enrich a build
+afterwards, with the rules and options of the run, and update `dataset.json` to match:
 
 ```bash
-suMEDS-enrich "$OUT/MEDS_cohort/metadata/codes.parquet" -o "$OUT/MEDS_cohort/metadata/codes.parquet" --rules FHIR
+suMEDS-enrich "$OUT/MEDS_cohort"
+# Without internet, from a copy of the sumeds-ontologies packs directory:
+suMEDS-enrich "$OUT/MEDS_cohort" --ontology-source /path/to/sumeds-ontologies/ontologies --offline
 ```
 
 The codes start with the resource type, so suMEDS cannot read the vocabulary from them on its own; the rules point

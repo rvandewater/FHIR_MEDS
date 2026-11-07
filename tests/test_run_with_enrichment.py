@@ -3,14 +3,20 @@
 The enrichment uses the rules this package registers as `FHIR` in suMEDS's `sumeds.rules` entry-point group.
 The ontology source is the tiny pack repository of ``conftest.py`` (made-up titles), so the test reads nothing
 over the network and does not depend on the published packs.
+
+`metadata/dataset.json` records the enrichment. A failed enrichment leaves the plain output, records the
+failure and does not fail the run unless `enrich_args=[--strict]`; `suMEDS-enrich MEDS_COHORT_DIR` then
+enriches it as the run would have.
 """
 
+import json
 from pathlib import Path
 
 import polars as pl
 import pyarrow.parquet as pq
 import pytest
-from meds import CodeMetadataSchema
+from meds import CodeMetadataSchema, DatasetMetadataSchema
+from sumeds.cli import enrich_main
 
 from tests.conftest import pack_title
 from tests.test_e2e import SINGLE_SPLIT, run_fhir2meds
@@ -20,7 +26,8 @@ from tests.test_e2e import SINGLE_SPLIT, run_fhir2meds
 def enriched_cohort(tmp_path_factory, mixed_raw_dir: Path, ontology_source: Path) -> Path:
     root = tmp_path_factory.mktemp("enriched")
     # The default run, with a suMEDS option passed through `enrich_args`. The environment points suMEDS at a
-    # missing pack source, so the run only succeeds if `--ontology-source` reaches suMEDS-enrich.
+    # missing pack source, so the run only enriches (see test_dataset_json_records_the_enrichment) if
+    # `--ontology-source` reaches suMEDS-enrich.
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("SUMEDS_ONTOLOGY_SOURCE", str(root / "no_such_source"))
         result = run_fhir2meds(
@@ -108,3 +115,73 @@ def test_bad_enrich_args_fail_before_the_pipeline(mixed_raw_dir: Path, tmp_path:
     assert result.returncode != 0
     assert "--no-such-option" in result.stderr
     assert not (tmp_path / "pre_MEDS").exists()
+
+
+def _dataset(cohort: Path) -> dict:
+    """`metadata/dataset.json`, which must stay valid MEDS dataset metadata."""
+    dataset = json.loads((cohort / "metadata" / "dataset.json").read_text())
+    DatasetMetadataSchema.validate(dataset)
+    return dataset
+
+
+def _codes_bytes(cohort: Path) -> bytes:
+    return (cohort / "metadata" / "codes.parquet").read_bytes()
+
+
+def test_dataset_json_records_the_enrichment(enriched_cohort: Path, plain_cohort: Path, codes: dict):
+    assert "sumeds_enrichment" not in _dataset(plain_cohort)
+    record = _dataset(enriched_cohort)["sumeds_enrichment"]
+    assert record["enriched"] is True
+    assert record["rules"] == "FHIR"
+    assert record["ontology_source"] == "local"
+    coverage = record["coverage"]
+    assert coverage["codes"] == len(codes)
+    assert coverage["described"][0] < coverage["described"][1]
+    assert coverage["with_parent_codes"][0] < coverage["with_parent_codes"][1]
+
+
+def test_failed_enrichment_keeps_the_etl_output_and_is_enriched_later(
+    mixed_raw_dir: Path,
+    tmp_path: Path,
+    ontology_source: Path,
+    plain_cohort: Path,
+    enriched_cohort: Path,
+    monkeypatch,
+):
+    """No ontology data (as without internet): the run succeeds, unenriched, and says so."""
+    monkeypatch.delenv("SUMEDS_ONTOLOGY_SOURCE")
+    missing = tmp_path / "no_ontologies"
+    result = run_fhir2meds(
+        mixed_raw_dir, tmp_path, SINGLE_SPLIT, f"enrich_args=[--ontology-source,{missing}]"
+    )
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "suMEDS-enrich: warning: enrichment failed" in result.stderr
+    cohort = tmp_path / "MEDS_cohort"
+    assert _codes_bytes(cohort) == _codes_bytes(plain_cohort)
+    record = _dataset(cohort)["sumeds_enrichment"]
+    assert record["enriched"] is False
+    assert record["rules"] == "FHIR"
+    assert record["retry"] == "suMEDS-enrich <MEDS_ROOT> --ontology-source <PACKS_DIR>"
+    assert str(missing) not in json.dumps(record)
+
+    # `suMEDS-enrich MEDS_COHORT_DIR` reuses the recorded rules and options; the local pack source is a path,
+    # so it is given again.
+    assert enrich_main([str(cohort), "--ontology-source", str(ontology_source)]) == 0
+    assert pl.read_parquet(cohort / "metadata" / "codes.parquet").equals(
+        pl.read_parquet(enriched_cohort / "metadata" / "codes.parquet")
+    )
+    record = _dataset(cohort)["sumeds_enrichment"]
+    assert record["enriched"] is True
+    assert record["rules"] == "FHIR"
+
+
+def test_strict_enrichment_fails_the_run(mixed_raw_dir: Path, tmp_path: Path, plain_cohort: Path):
+    missing = tmp_path / "no_ontologies"
+    result = run_fhir2meds(
+        mixed_raw_dir, tmp_path, SINGLE_SPLIT, f"enrich_args=[--strict,--ontology-source,{missing}]"
+    )
+    assert result.returncode != 0
+    assert "suMEDS-enrich: error:" in result.stderr
+    cohort = tmp_path / "MEDS_cohort"
+    assert _codes_bytes(cohort) == _codes_bytes(plain_cohort)
+    assert "sumeds_enrichment" not in _dataset(cohort)
