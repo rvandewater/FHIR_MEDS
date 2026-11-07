@@ -1,4 +1,4 @@
-# MEDS-Extract (>= 0.7) event specification ("MESSY") for the flat tables written by fhir2meds' pre-MEDS stage.
+# MEDS-Extract (0.8) event specification ("MESSY") for the flat tables written by fhir2meds' pre-MEDS stage.
 #
 # Every top-level key below names a pre-MEDS table (<pre_MEDS_dir>/<ResourceType>.parquet). At run time fhir2meds
 # drops tables that the input did not produce and fills in the `etl:` block (dataset name/version), then saves the

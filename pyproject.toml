@@ -9,8 +9,13 @@ description = "Convert HL7 FHIR (R4/R5) resources to the MEDS format with MEDS-E
 authors = [ { name = "Robin P. van de Water", email = "robin.vandewater@hpi.de" } ]
 readme = "README.md"
 requires-python = ">=3.11.4,<3.14"
+# MEDS-Extract and suMEDS are capped below their next minor: their 0.x minors are breaking (MESSY syntax,
+# runner CLI, rules format), so raise the caps deliberately when migrating. The `[download]` extra provides
+# `meds-extract-download` (do_download=true). suMEDS enriches metadata/codes.parquet as the converter's
+# last step, with the rules registered below.
 dependencies = [
-    "MEDS-extract[download]~=0.7.1",
+    "MEDS-extract[download]>=0.8.0,<0.9",
+    "sumeds>=0.6,<0.7",
     "meds~=0.4.0",
     "polars>=1.38,<2",
     "pyarrow",
@@ -27,12 +32,16 @@ local_parallelism = ["hydra-joblib-launcher"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.26"]
 
 [tool.setuptools.package-data]
-fhir2meds = ["configs/*.yaml"]
+fhir2meds = ["configs/*.yaml", "sumeds_rules.yaml"]
 
 [project.scripts]
 fhir2meds = "fhir2meds.__main__:main"
 FHIR_MEDS = "fhir2meds.__main__:main"
 MEDS_ON_FHIR = "fhir2meds.__main__:main"
+
+# Registers the suMEDS rules as `FHIR`, so `--rules FHIR` finds them in any suMEDS command.
+[project.entry-points."sumeds.rules"]
+FHIR = "fhir2meds:sumeds_rules.yaml"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"

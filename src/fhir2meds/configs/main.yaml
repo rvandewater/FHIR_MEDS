@@ -28,6 +28,12 @@ etl_options: null
 # Optional MEDS-Transforms stage runner YAML (e.g. joblib parallelism), forwarded to meds-extract-run.
 stage_runner_fp: null
 
+# Enrich MEDS_cohort/metadata/codes.parquet in place with suMEDS-enrich and the rules registered as `FHIR`
+# (src/fhir2meds/sumeds_rules.yaml). enrich_args are further suMEDS-enrich options, e.g.
+# [--athena-csv,/path/to/athena] or [--offline].
+do_enrich: true
+enrich_args: []
+
 log_dir: ${root_output_dir}/.logs
 
 # Hydra

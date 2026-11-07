@@ -5,6 +5,7 @@ from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
+from sumeds.cli import build_enrich_parser, enrich_main
 
 from . import MAIN_CFG, __version__
 from .extract import download_raw_data, run_meds_extract, write_effective_spec
@@ -20,10 +21,17 @@ MAIN_CFG_STEM = os.path.splitext(os.path.basename(MAIN_CFG_PATH))[0]
 
 @hydra.main(version_base=None, config_path=MAIN_CFG_PARENT, config_name=MAIN_CFG_STEM)
 def main(cfg: DictConfig) -> None:
-    """Run the full FHIR -> MEDS pipeline: (download) -> pre-MEDS flattening -> MEDS-Extract."""
+    """Run the full FHIR -> MEDS pipeline: (download) -> pre-MEDS flattening -> MEDS-Extract -> suMEDS."""
     raw_input_dir = Path(cfg.raw_input_dir)
     pre_MEDS_dir = Path(cfg.pre_MEDS_dir)
     MEDS_cohort_dir = Path(cfg.MEDS_cohort_dir)
+
+    # suMEDS-enrich arguments; a later --rules in enrich_args overrides the packaged rules. Checked now, not
+    # after the pipeline has run.
+    codes_fp = str(MEDS_cohort_dir.resolve() / "metadata" / "codes.parquet")
+    enrich_argv = [codes_fp, "-o", codes_fp, "--rules", "FHIR", *map(str, cfg.enrich_args)]
+    if cfg.do_enrich:
+        build_enrich_parser().parse_args(enrich_argv)
 
     if cfg.do_overwrite:
         for d in (pre_MEDS_dir, MEDS_cohort_dir):
@@ -60,6 +68,10 @@ def main(cfg: DictConfig) -> None:
         f"Extracting MEDS events from {len(tables)} tables: {tables} ({sum(row_counts.values())} rows)."
     )
     run_meds_extract(spec_fp, pre_MEDS_dir, MEDS_cohort_dir, __version__, cfg.get("stage_runner_fp"))
+
+    # Step 3: vocabulary titles and parents for metadata/codes.parquet, in place (see sumeds_rules.yaml).
+    if cfg.do_enrich:
+        enrich_main(enrich_argv)
     logger.info(f"Done. MEDS cohort written to {MEDS_cohort_dir}.")
 
 

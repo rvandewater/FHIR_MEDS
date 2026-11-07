@@ -1,7 +1,8 @@
 # Contributing
 
 `fhir2meds` converts FHIR resources to MEDS in two stages: a FHIR-specific **pre-MEDS** step that flattens
-each resource type into a table, and a generic **MEDS-Extract 0.7** step that builds events from those tables.
+each resource type into a table, and a generic **MEDS-Extract 0.8** step that builds events from those tables.
+A final **suMEDS** step adds vocabulary titles and parents to `metadata/codes.parquet`.
 [Design choices](docs/design.md) explains why; this page covers how to work on it.
 
 ## Where things live
@@ -14,6 +15,7 @@ each resource type into a table, and a generic **MEDS-Extract 0.7** step that bu
 | CLI defaults                                       | `src/fhir2meds/configs/main.yaml`                           |
 | parsing, flattening, ids, times, references        | `src/fhir2meds/pre_MEDS.py`, `src/fhir2meds/fhir_parser.py` |
 | how MEDS-Extract is invoked                        | `src/fhir2meds/extract.py`                                  |
+| which codes suMEDS enriches, and how               | `src/fhir2meds/sumeds_rules.yaml`                           |
 
 Most mapping changes need only the two YAML files; [Customizing the mapping](docs/customizing.md) walks
 through both.
@@ -31,9 +33,10 @@ rough order of how often:
     any present value (including `0`, `inf` and `NaN`) and null for a missing one. A bare `null` parses as
     the *string* `"null"`. Tracked in [dftly#113](https://github.com/mmcdermott/dftly/issues/113).
 
-Also worth knowing: a table may declare **exactly one** `_table.join`, `_table.cols` entries are evaluated
-in order so later ones may reference earlier ones, and adding a Duration to a Datetime must be written as
-`anchor - (-$offset)::minutes` because `+` does not lower correctly.
+Also worth knowing: a table joins other tables with `_table.joins` (a list since MEDS-Extract 0.8, which
+renamed `_table.join`), `_table.cols` entries are evaluated in order so later ones may reference earlier ones,
+and adding a Duration to a Datetime must be written as `anchor - (-$offset)::minutes` because `+` does not
+lower correctly.
 
 ## Development
 
@@ -51,10 +54,10 @@ uv run mkdocs build --strict
 A plain `pre-commit run` checks only staged files, so hooks legitimately skip when nothing matching is
 staged. Use `--all-files` for a full repository check.
 
-`pytest` runs offline against the Synthea fixtures in `tests/fixtures/synthea`. The tests that download the
-MIMIC-IV FHIR demo and the public Synthea samples are skipped unless `FHIR_MEDS_RUN_DOWNLOAD_TESTS=1`; CI runs
-them weekly in the `Integration (public datasets)` workflow, and it can be started by hand from the Actions
-tab.
+`pytest` runs offline against the Synthea fixtures in `tests/fixtures/synthea`, and points the suMEDS step at
+tiny local ontology packs (`tests/conftest.py`). The tests that download the MIMIC-IV FHIR demo and the public
+Synthea samples are skipped unless `FHIR_MEDS_RUN_DOWNLOAD_TESTS=1`; CI runs them weekly in the
+`Integration (public datasets)` workflow, and it can be started by hand from the Actions tab.
 
 ## Changing what the ETL emits
 

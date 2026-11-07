@@ -1,7 +1,12 @@
-"""Tiny, hand-written FHIR fixtures shaped like the MIMIC-IV FHIR demo and like Synthea output."""
+"""Tiny, hand-written FHIR fixtures shaped like the MIMIC-IV FHIR demo and like Synthea output, and tiny
+suMEDS ontology packs, so that the suMEDS enrichment step that ends every fhir2meds run stays offline."""
 
+import csv
 import gzip
+import hashlib
+import io
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -249,19 +254,129 @@ def synthea_like_bundle() -> dict:
     }
 
 
-@pytest.fixture
-def mimic_like_dir(tmp_path: Path) -> Path:
-    root = tmp_path / "mimic_like"
-    root.mkdir()
+def write_mimic_like(root: Path) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
     for fname, resources in mimic_like_resources().items():
         _write_ndjson(root / fname, resources)
     return root
 
 
-@pytest.fixture
-def synthea_like_dir(tmp_path: Path) -> Path:
-    root = tmp_path / "synthea_like"
-    root.mkdir()
+def write_synthea_like(root: Path) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
     # Synthea writes one pretty-printed (multi-line) Bundle per patient.
     (root / f"Jane_Doe_{SYNTHEA_PATIENT_UUID}.json").write_text(json.dumps(synthea_like_bundle(), indent=2))
     return root
+
+
+@pytest.fixture
+def mimic_like_dir(tmp_path: Path) -> Path:
+    return write_mimic_like(tmp_path / "mimic_like")
+
+
+@pytest.fixture
+def synthea_like_dir(tmp_path: Path) -> Path:
+    return write_synthea_like(tmp_path / "synthea_like")
+
+
+# Tiny ontology packs in suMEDS's `sumeds-ontologies/0.1` layout: vocabulary -> (release, {code: parent}),
+# with made-up titles. They hold the MIMIC-like ICD codes (and their categories), one LOINC code of the
+# Synthea sample, and a code of each other pack vocabulary the rules use, since suMEDS fails when a rule's
+# pack is missing from the source. Codes that are not in a pack are left unenriched.
+PACKS = {
+    "ICD10CM": ("fy2016-fy2027", {"N17": None, "N17.9": "N17", "I10": None}),
+    "ICD9CM": ("v32", {"584": None, "584.9": "584"}),
+    "ICD10PCS": ("fy2016-fy2027", {"0DTJ4ZZ": None}),
+    "ICD9Proc": ("v32", {"39": None, "39.61": "39"}),
+    "LOINC": ("2.83", {"39156-5": None}),
+}
+
+
+def pack_title(vocabulary: str, code: str) -> str:
+    return f"Synthetic {vocabulary} title {code}"
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def write_ontology_packs(root: Path) -> Path:
+    """Write ``PACKS`` as a local ontology pack repository (index, manifests, CSV shards) under ``root``."""
+    columns = ["code", "description", "parent"]
+    vocabularies = {}
+    for vocabulary, (release, rows) in PACKS.items():
+        directory = root / vocabulary / release
+        directory.mkdir(parents=True)
+        by_shard: dict[str, list[list[str]]] = {}
+        for code, parent in rows.items():
+            by_shard.setdefault(code[:1], []).append([code, pack_title(vocabulary, code), parent or ""])
+        shards = {}
+        for key, shard_rows in by_shard.items():
+            buffer = io.StringIO()
+            csv.writer(buffer, lineterminator="\n").writerows([columns, *shard_rows])
+            data = buffer.getvalue().encode()
+            (directory / f"{key}.csv").write_bytes(data)
+            shards[key] = {
+                "file": f"{key}.csv",
+                "rows": len(shard_rows),
+                "bytes": len(data),
+                "sha256": _sha256(data),
+            }
+        manifest = {
+            "schema": "sumeds-ontology-pack/0.1",
+            "vocabulary": vocabulary,
+            "release": release,
+            "columns": columns,
+            "fields": {"code": "code", "description": "description", "parent": "parent"},
+            "shard_key_length": 1,
+            "rows": len(rows),
+            "bytes": sum(s["bytes"] for s in shards.values()),
+            "shards": shards,
+        }
+        manifest_bytes = json.dumps(manifest).encode()
+        (directory / "manifest.json").write_bytes(manifest_bytes)
+        vocabularies[vocabulary] = {
+            "manifest": f"{vocabulary}/{release}/manifest.json",
+            "sha256": _sha256(manifest_bytes),
+            "release": release,
+            "rows": manifest["rows"],
+            "bytes": manifest["bytes"],
+        }
+    (root / "index.json").write_text(
+        json.dumps({"schema": "sumeds-ontologies/0.1", "vocabularies": vocabularies})
+    )
+    return root
+
+
+@pytest.fixture(scope="session")
+def ontology_source(tmp_path_factory) -> Path:
+    return write_ontology_packs(tmp_path_factory.mktemp("ontologies"))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def offline_ontology_packs(ontology_source: Path):
+    """fhir2meds ends with suMEDS enrichment, which fetches the published packs by default. Point it at the
+    tiny local packs instead, for every run the tests start."""
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("SUMEDS_ONTOLOGY_SOURCE", str(ontology_source))
+        yield
+
+
+@pytest.fixture(scope="session")
+def mixed_raw_dir(tmp_path_factory) -> Path:
+    """The MIMIC-like fixture and the Synthea sample (fixtures/synthea/bulk) as one input, so that one run
+    writes the code layouts of both. (The Synthea-like Bundle would clash: it reuses the MIMIC-like ids.)"""
+    root = tmp_path_factory.mktemp("raw")
+    write_mimic_like(root / "mimic_like")
+    shutil.copytree(Path(__file__).parent / "fixtures" / "synthea" / "bulk", root / "synthea")
+    return root
+
+
+@pytest.fixture(scope="session")
+def plain_cohort(tmp_path_factory, mixed_raw_dir: Path) -> Path:
+    """The MEDS cohort of ``mixed_raw_dir`` without suMEDS enrichment (``do_enrich=false``)."""
+    from tests.test_e2e import SINGLE_SPLIT, run_fhir2meds
+
+    root = tmp_path_factory.mktemp("plain")
+    result = run_fhir2meds(mixed_raw_dir, root, SINGLE_SPLIT, "do_enrich=false")
+    assert result.returncode == 0, result.stderr[-3000:]
+    return root / "MEDS_cohort"

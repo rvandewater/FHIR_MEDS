@@ -4,7 +4,8 @@
 
 **fhir2meds** converts [HL7 FHIR](https://hl7.org/fhir/) R4/R5 resources into the
 [Medical Event Data Standard (MEDS)](https://medical-event-data-standard.github.io/), using
-[MEDS-Extract](https://github.com/mmcdermott/MEDS_extract) for the MEDS side of the ETL.
+[MEDS-Extract](https://github.com/mmcdermott/MEDS_extract) for the MEDS side of the ETL and
+[suMEDS](https://github.com/rvandewater/SumMEDS) for vocabulary titles and parents of the codes.
 
 !!! warning "Alpha"
     fhir2meds is in alpha. It is tested on the MIMIC-IV FHIR demo and on Synthea data.
@@ -22,13 +23,15 @@ The MEDS dataset is written to `output/MEDS_cohort/`. See [Usage](usage.md) for 
 
 ```mermaid
 flowchart LR
-    A["FHIR NDJSON / Bundles"] --> B["pre-MEDS<br/>(flatten.yaml)"] --> C["flat parquet<br/>per resource type"] --> D["MEDS-Extract<br/>(messy.yaml)"] --> E["MEDS cohort"]
+    A["FHIR NDJSON / Bundles"] --> B["pre-MEDS<br/>(flatten.yaml)"] --> C["flat parquet<br/>per resource type"] --> D["MEDS-Extract<br/>(messy.yaml)"] --> E["MEDS cohort"] --> F["suMEDS-enrich<br/>(sumeds_rules.yaml)"]
 ```
 
 1. **pre-MEDS** streams FHIR resources and flattens each resource type into a table. It assigns integer subject ids,
    resolves medication references, and normalizes timestamps.
 2. **MEDS-Extract** builds events from those tables with a declarative spec, then shards, splits and writes MEDS
    metadata.
+3. **suMEDS** adds vocabulary parents (and titles where FHIR has no `display`) to `metadata/codes.parquet`, in
+   place. `do_enrich=false` skips it.
 
 The reasoning behind each step is in [Design choices](design.md). To change which FHIR elements are read or which
 events are produced, see [Customizing the mapping](customizing.md).

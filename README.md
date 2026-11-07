@@ -28,14 +28,17 @@
 [MEDS](https://github.com/Medical-Event-Data-Standard/meds) format. It is tested with the MIMIC-IV FHIR demo and
 with [Synthea](https://github.com/synthetichealth/synthea) synthetic data.
 
-The pipeline has two steps:
+The pipeline has three steps:
 
 1. **pre-MEDS** (FHIR-specific): stream FHIR resources from bulk-export NDJSON or per-patient Bundles (optionally
     gzipped), flatten them into one typed parquet table per resource type (`configs/flatten.yaml`), assign integer
     `subject_id`s, resolve `medicationReference`s and parse FHIR timestamps.
-2. **MEDS-Extract** ([`meds-extract-run`](https://github.com/mmcdermott/MEDS_extract) ≥ 0.7): turn those tables
+2. **MEDS-Extract** ([`meds-extract-run`](https://github.com/mmcdermott/MEDS_extract) 0.8): turn those tables
     into MEDS events according to a declarative MESSY spec (`configs/messy.yaml`), then shard by subject, split into
     train/tuning/held_out and write MEDS metadata.
+3. **suMEDS** ([`suMEDS-enrich`](https://github.com/rvandewater/SumMEDS) 0.6, on by default): add vocabulary
+    titles and parents to `metadata/codes.parquet` (see
+    [Enriching code metadata with suMEDS](#enriching-code-metadata-with-sumeds)).
 
 Documentation, including the [design choices](https://fhir2meds.readthedocs.io/en/latest/design/) behind the
 mapping and a [review of Synthea datasets](https://fhir2meds.readthedocs.io/en/latest/synthea/) for testing, is at
@@ -47,7 +50,7 @@ mapping and a [review of Synthea datasets](https://fhir2meds.readthedocs.io/en/l
 - Reads FHIR bulk-data NDJSON (`*.ndjson[.gz]`) and resources/Bundles (`*.json[.gz]`, e.g. Synthea output)
 - Streams input, so large exports don't need to fit in memory
 - Codes of the form `<ResourceType>//<VOCAB>//<code>` (e.g. `Observation//LOINC//8867-4`), with code descriptions
-    taken from the FHIR `display`
+    taken from the FHIR `display`, and vocabulary parents (and missing titles) from suMEDS
 - `MEDS_BIRTH`, `MEDS_DEATH` and static demographic events, Observation components, encounter start/end
 - Configurable: edit `flatten.yaml` to change which FHIR elements are read, and `messy.yaml` to change the
     resulting MEDS events
@@ -89,10 +92,47 @@ Common options (Hydra overrides):
 - `etl_options={n_subjects_per_shard:1000,split_fracs:{train:0.8,tuning:0.1,held_out:0.1}}`: MEDS-Extract options
 - `stage_runner_fp=runner.yaml`: MEDS-Transforms stage runner config, e.g. for joblib parallelism
 - `max_events=N`: only read the first N resources per type (debugging)
+- `do_enrich=false`: skip the suMEDS enrichment and keep the plain ETL output
+- `enrich_args=[--athena-csv,/path/to/athena]`: further `suMEDS-enrich` options (see below)
 
 MEDS requires integer `subject_id`s. If a Patient has an integer identifier whose system ends in
 `/identifier/patient` (MIMIC-IV's `subject_id`), it is used; otherwise the `subject_id` is a stable SHA-256-derived
 integer of the Patient's logical id. The mapping is written to `pre_MEDS/subject_id_map.parquet`.
+
+### Enriching code metadata with suMEDS
+
+Vocabulary work lives in [suMEDS](https://github.com/rvandewater/SumMEDS) rather than in this converter. The
+package ships the rules for it, [`src/fhir2meds/sumeds_rules.yaml`](src/fhir2meds/sumeds_rules.yaml), registered in
+suMEDS's `sumeds.rules` entry-point group as `FHIR`, so `--rules FHIR` works for any suMEDS command. `fhir2meds`
+ends by running `suMEDS-enrich` with these rules on `MEDS_cohort/metadata/codes.parquet`, which is replaced only
+once the enriched table is complete and stays valid MEDS code metadata. By default the LOINC and ICD data comes
+from suMEDS's ontology packs, fetched from GitHub on first use and cached; no Athena download is needed. suMEDS
+options go in `enrich_args`:
+
+```bash
+# Also look codes up in your own OHDSI Athena download (SNOMED, RxNorm, NDC, CPT-4, ... and OMOP concept ids):
+fhir2meds raw_input_dir=path/to/fhir root_output_dir=output "enrich_args=[--athena-csv,/path/to/athena]"
+# Use only already cached packs (no network):
+fhir2meds raw_input_dir=path/to/fhir root_output_dir=output "enrich_args=[--offline]"
+# The plain ETL, without suMEDS:
+fhir2meds raw_input_dir=path/to/fhir root_output_dir=output do_enrich=false
+```
+
+To enrich the `codes.parquet` of an existing build instead:
+
+```bash
+suMEDS-enrich "$OUT/MEDS_cohort/metadata/codes.parquet" -o "$OUT/MEDS_cohort/metadata/codes.parquet" --rules FHIR
+```
+
+The codes start with the resource type, so suMEDS cannot read the vocabulary from them on its own; the rules point
+it at the `<VOCAB>//<code>` part. They validate LOINC codes and the ICD-10-CM, ICD-9-CM, ICD-10-PCS and ICD-9
+procedure codes (MIMIC's undotted codes included) against suMEDS's versioned packs, and add the official title
+where a code has no FHIR `display`, and the vocabulary code and its ancestors as `parent_codes`. On the MIMIC-IV
+FHIR demo this gives parents to all 1,742 diagnosis and procedure codes (5,308 parent entries); on the Synthea test
+sample (`tests/fixtures/synthea`), to 96 of its 111 LOINC codes (the LOINC pack leaves out terms under third-party
+copyright, such as PHQ-2). SNOMED, RxNorm, CVX, NDC, CPT-4 and HCPCS codes have no public pack and are looked up
+only with `--athena-csv`, which on the MIMIC demo also fills the missing titles of 646 NDC codes. The same rules
+work with `suMEDS … --rules FHIR` to build a privacy-masked code catalog of the output.
 
 ______________________________________________________________________
 
@@ -102,6 +142,8 @@ ______________________________________________________________________
 pip install -e ".[tests]"
 pytest
 ```
+
+The tests run offline: the suMEDS step reads tiny local ontology packs built in `tests/conftest.py`.
 
 ______________________________________________________________________
 

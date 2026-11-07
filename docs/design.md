@@ -61,6 +61,11 @@ Codes have the form **`<ResourceType>//<VOCAB>//<code>`**, e.g. `Observation//LO
     switching is a one-line change to `messy.yaml` (`f"...//{$code}//{$value_unit ?? 'UNK'}"`).
 - **Descriptions** in `metadata/codes.parquet` come from the FHIR `display` (or the CodeableConcept `text`), through
     MEDS-Extract's `_metadata: {_self: ...}` mechanism.
+- **Parents** come from [suMEDS](https://github.com/rvandewater/SumMEDS), which runs last and enriches
+    `codes.parquet` in place. Because the resource type comes first, suMEDS needs the packaged rules
+    (`sumeds_rules.yaml`) to find the vocabulary code. LOINC and ICD codes are validated against its versioned
+    packs, which add the vocabulary code and its ancestors as `parent_codes`, and a title where FHIR has no
+    `display`; other vocabularies need an Athena download. Vocabulary handling stays in suMEDS rather than here.
 - **Special events:** `MEDS_BIRTH` (`Patient.birthDate`), `MEDS_DEATH` (`Patient.deceasedDateTime`), static
     `GENDER//…`, `RACE//…` and `ETHNICITY//…` (from the US Core extensions), and `Encounter_END//…` at `period.end`.
 

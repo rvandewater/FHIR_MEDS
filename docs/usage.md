@@ -26,7 +26,7 @@ output/
 │   └── messy.yaml                                   # the MEDS-Extract spec used for this run
 ├── MEDS_cohort/
 │   ├── data/{train,tuning,held_out}/*.parquet
-│   └── metadata/{dataset.json,codes.parquet,subject_splits.parquet}
+│   └── metadata/{dataset.json,codes.parquet,subject_splits.parquet}   # codes.parquet enriched by suMEDS
 └── .logs/
 ```
 
@@ -48,6 +48,8 @@ Rows dropped by MEDS-Extract (e.g. null time) are counted per event in
 | `etl_options`                     | `null`                                                       | MEDS-Extract `etl:` options, e.g. `{n_subjects_per_shard:1000,split_fracs:{train:0.8,tuning:0.1,held_out:0.1}}`                                                      |
 | `stage_runner_fp`                 | `null`                                                       | MEDS-Transforms stage runner YAML, e.g. for joblib parallelism (`pip install fhir2meds[local_parallelism]`)                                                          |
 | `max_events`                      | `null`                                                       | read at most N resources per type (debugging)                                                                                                                        |
+| `do_enrich`                       | `true`                                                       | enrich `metadata/codes.parquet` in place with suMEDS and the packaged `FHIR` rules: vocabulary parents, and titles where FHIR has no `display`                       |
+| `enrich_args`                     | `[]`                                                         | further `suMEDS-enrich` options, e.g. `[--athena-csv,/path/to/athena]` (SNOMED, RxNorm, NDC, ... and OMOP concept ids) or `[--offline]`                              |
 
 ## Examples
 
@@ -62,6 +64,13 @@ A Synthea output directory (default per-patient Bundles):
 
 ```bash
 fhir2meds raw_input_dir=synthea/output/fhir root_output_dir=synthea_meds dataset_name=SYNTHEA
+```
+
+Also look codes up in your own OHDSI Athena download, or skip the suMEDS step:
+
+```bash
+fhir2meds raw_input_dir=synthea/output/fhir root_output_dir=synthea_meds "enrich_args=[--athena-csv,/path/to/athena]"
+fhir2meds raw_input_dir=synthea/output/fhir root_output_dir=synthea_meds do_enrich=false
 ```
 
 Very small datasets (fewer than ~3 patients) cannot populate all three default splits:

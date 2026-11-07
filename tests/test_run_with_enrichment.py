@@ -1,0 +1,110 @@
+"""`fhir2meds` ends with suMEDS enrichment of `metadata/codes.parquet`, offline.
+
+The enrichment uses the rules this package registers as `FHIR` in suMEDS's `sumeds.rules` entry-point group.
+The ontology source is the tiny pack repository of ``conftest.py`` (made-up titles), so the test reads nothing
+over the network and does not depend on the published packs.
+"""
+
+from pathlib import Path
+
+import polars as pl
+import pyarrow.parquet as pq
+import pytest
+from meds import CodeMetadataSchema
+
+from tests.conftest import pack_title
+from tests.test_e2e import SINGLE_SPLIT, run_fhir2meds
+
+
+@pytest.fixture(scope="module")
+def enriched_cohort(tmp_path_factory, mixed_raw_dir: Path, ontology_source: Path) -> Path:
+    root = tmp_path_factory.mktemp("enriched")
+    # The default run, with a suMEDS option passed through `enrich_args`. The environment points suMEDS at a
+    # missing pack source, so the run only succeeds if `--ontology-source` reaches suMEDS-enrich.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("SUMEDS_ONTOLOGY_SOURCE", str(root / "no_such_source"))
+        result = run_fhir2meds(
+            mixed_raw_dir, root, SINGLE_SPLIT, f"enrich_args=[--ontology-source,{ontology_source}]"
+        )
+    assert result.returncode == 0, result.stderr[-3000:]
+    return root / "MEDS_cohort"
+
+
+@pytest.fixture(scope="module")
+def codes(enriched_cohort: Path) -> dict[str, dict]:
+    return {
+        row["code"]: row for row in pl.read_parquet(enriched_cohort / "metadata" / "codes.parquet").to_dicts()
+    }
+
+
+def names(value) -> dict[str, str]:
+    """A code-to-name map column value: a list of key/value structs on Polars 1, a dict on Polars 2."""
+    return value if isinstance(value, dict) else {entry["key"]: entry["value"] for entry in value or []}
+
+
+def test_codes_parquet_is_replaced_by_valid_meds_metadata(enriched_cohort: Path):
+    metadata = enriched_cohort / "metadata"
+    CodeMetadataSchema.validate(pq.read_table(metadata / "codes.parquet"))
+    assert not list(metadata.glob(".codes.parquet.*")), "the temporary enrichment output was left behind"
+
+
+def test_data_matches_the_plain_run(enriched_cohort: Path, plain_cohort: Path):
+    def events(cohort: Path) -> pl.DataFrame:
+        cols = ["subject_id", "time", "code", "numeric_value", "text_value"]
+        shards = sorted((cohort / "data").rglob("*.parquet"))
+        return pl.concat([pl.read_parquet(fp, columns=cols) for fp in shards]).sort(cols, nulls_last=False)
+
+    assert events(enriched_cohort).equals(events(plain_cohort))
+
+
+def test_enrichment_is_non_destructive(codes: dict[str, dict], plain_cohort: Path):
+    """Every code of the plain run is kept, with its description, and its parent_codes (if any) start the new
+    list."""
+    plain = pl.read_parquet(plain_cohort / "metadata" / "codes.parquet")
+    assert set(plain["code"]) == set(codes)
+    for row in plain.to_dicts():
+        new = codes[row["code"]]
+        if row["description"] is not None:
+            assert new["description"] == row["description"], row["code"]
+        old_parents = row.get("parent_codes") or []
+        assert (new["parent_codes"] or [])[: len(old_parents)] == old_parents, row["code"]
+
+
+def test_icd_codes_get_titles_and_parents(codes: dict[str, dict]):
+    # No FHIR display: the pack title fills the description. MIMIC's undotted codes are found dotted.
+    aki = codes["Condition//ICD10CM//N179"]
+    assert aki["description"] == pack_title("ICD10CM", "N17.9")
+    assert aki["parent_codes"] == ["ICD10CM//N17.9", "ICD10CM//N17"]
+    assert names(aki["parent_names"]) == {
+        "ICD10CM//N17.9": pack_title("ICD10CM", "N17.9"),
+        "ICD10CM//N17": pack_title("ICD10CM", "N17"),
+    }
+    assert codes["Condition//ICD9CM//5849"]["parent_codes"] == ["ICD9CM//584.9", "ICD9CM//584"]
+    assert codes["Condition//ICD10CM//I10"]["parent_codes"] == ["ICD10CM//I10"]
+
+
+def test_loinc_description_from_fhir_is_kept(codes: dict[str, dict]):
+    bmi = codes["Observation//LOINC//39156-5"]
+    assert bmi["description"] == "Body mass index (BMI) [Ratio]"  # the FHIR display, not the pack title
+    assert bmi["parent_codes"] == ["LOINC//39156-5"]
+    assert names(bmi["parent_names"]) == {"LOINC//39156-5": pack_title("LOINC", "39156-5")}
+
+
+def test_other_codes_are_left_alone(codes: dict[str, dict]):
+    """Codes outside the packs get no parents: MIMIC's local systems, LOINC codes missing from the pack, and
+    SNOMED, RxNorm and CVX codes, which need an Athena download."""
+    for code in (
+        "Observation//D-LABITEMS//50912",
+        "Observation//LOINC//8480-6",
+        "Encounter//SNOMED//162673000",
+        "Immunization//CVX//140",
+    ):
+        assert not codes[code]["parent_codes"], code
+    assert not any(row["parent_codes"] for code, row in codes.items() if "//RXNORM//" in code)
+
+
+def test_bad_enrich_args_fail_before_the_pipeline(mixed_raw_dir: Path, tmp_path: Path):
+    result = run_fhir2meds(mixed_raw_dir, tmp_path, SINGLE_SPLIT, "enrich_args=[--no-such-option]")
+    assert result.returncode != 0
+    assert "--no-such-option" in result.stderr
+    assert not (tmp_path / "pre_MEDS").exists()
