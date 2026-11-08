@@ -1,5 +1,6 @@
 """Tiny, hand-written FHIR fixtures shaped like the MIMIC-IV FHIR demo and like Synthea output, and tiny
-suMEDS ontology packs, so that the suMEDS enrichment step that ends every fhir2meds run stays offline."""
+suMEDS ontology packs, so that the suMEDS enrichment stage that ends every run of the `FHIR` spec stays
+offline."""
 
 import csv
 import gzip
@@ -354,8 +355,8 @@ def ontology_source(tmp_path_factory) -> Path:
 
 @pytest.fixture(scope="session", autouse=True)
 def offline_ontology_packs(ontology_source: Path):
-    """fhir2meds ends with suMEDS enrichment, which fetches the published packs by default. Point it at the
-    tiny local packs instead, for every run the tests start."""
+    """The `FHIR` spec ends with suMEDS enrichment, which fetches the published packs by default. Point it at
+    the tiny local packs instead (`SUMEDS_ONTOLOGY_SOURCE`), for every run the tests start."""
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("SUMEDS_ONTOLOGY_SOURCE", str(ontology_source))
         yield
@@ -373,10 +374,10 @@ def mixed_raw_dir(tmp_path_factory) -> Path:
 
 @pytest.fixture(scope="session")
 def plain_cohort(tmp_path_factory, mixed_raw_dir: Path) -> Path:
-    """The MEDS cohort of ``mixed_raw_dir`` without suMEDS enrichment (``do_enrich=false``)."""
-    from tests.test_e2e import SINGLE_SPLIT, run_fhir2meds
+    """The MEDS cohort of ``mixed_raw_dir`` from the registered spec, without suMEDS enrichment."""
+    from tests.test_e2e import run_fhir
 
-    root = tmp_path_factory.mktemp("plain")
-    result = run_fhir2meds(mixed_raw_dir, root, SINGLE_SPLIT, "do_enrich=false")
+    out = tmp_path_factory.mktemp("plain") / "MEDS_cohort"
+    result = run_fhir(mixed_raw_dir, out, "skip_stages=[sumeds_enrich]")
     assert result.returncode == 0, result.stderr[-3000:]
-    return root / "MEDS_cohort"
+    return out

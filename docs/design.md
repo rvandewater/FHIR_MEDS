@@ -7,8 +7,8 @@ downstream users of the MEDS output, together with the alternatives that were co
 
 ```mermaid
 flowchart LR
-    A["FHIR files<br/>NDJSON / Bundles (.gz)"] -->|"stream + flatten<br/>configs/flatten.yaml"| B["pre_MEDS/<br/>one parquet table<br/>per resource type"]
-    B -->|"meds-extract-run<br/>configs/messy.yaml"| C["MEDS_cohort/<br/>data/{train,tuning,held_out}<br/>metadata/"]
+    A["FHIR files<br/>NDJSON / Bundles (.gz)"] -->|"stream + flatten<br/>configs/flatten.yaml"| B["fhir_pre_meds/<br/>one parquet table<br/>per resource type"]
+    B -->|"meds-extract-run<br/>configs/messy.yaml"| C["data/{train,tuning,held_out}<br/>metadata/"]
 ```
 
 FHIR is deeply nested JSON, with choice types (`effective[x]`), references between resources and Bundles.
@@ -16,7 +16,11 @@ FHIR is deeply nested JSON, with choice types (`effective[x]`), references betwe
 needed to emit an event. The pipeline is split exactly at that boundary:
 
 - **pre-MEDS** ([`pre_MEDS.py`](api.md#fhir2meds.pre_MEDS)) does everything FHIR-specific. It reads the files,
-    pulls a fixed set of columns out of each resource type, and resolves links between resources.
+    pulls a fixed set of columns out of each resource type, and resolves links between resources. It runs as a
+    MEDS-Extract pre-stage, `fhir_pre_meds` ([`stages.py`](api.md#fhir2meds.stages)), declared in the spec's `etl:`
+    block, so the whole ETL is the one registered spec `FHIR`, run with `meds-extract-run`. It writes every table
+    the spec reads, without rows when the input has none of that resource type, so the spec needs no per-dataset
+    pruning.
 - **MEDS-Extract** does everything MEDS-specific: building events, de-duplication, subject sharding, train/tuning/
     held_out splits, `codes.parquet`, `dataset.json` and schema-conformant output.
 
@@ -81,7 +85,7 @@ MEDS requires `int64` subject ids, while FHIR Patient ids are arbitrary strings 
 SHA-256 rather than Python's `hash()` or polars' `Expr.hash` (and therefore rather than dftly's `hash()`) is a
 deliberate choice. Those hashes are not guaranteed stable across processes or library versions, and a subject id
 has to be reproducible. A collision in the mapping raises an error instead of silently merging two patients. The
-mapping is saved as `pre_MEDS/subject_id_map.parquet`.
+mapping is saved as `fhir_pre_meds/subject_id_map.parquet`.
 
 Resources whose patient reference does not point to an exported Patient are dropped, and the number dropped is
 logged.
@@ -100,7 +104,7 @@ logged.
     encounter's **end** (discharge) time (`start_fallback: encounter_end`), the usual convention for billing
     diagnoses, which are only final at discharge. Any other event whose time stays null is **dropped** by
     MEDS-Extract, not emitted as a static event, because a time-less diagnosis is not a time-invariant fact. The
-    counts are logged per event in `MEDS_cohort/convert_to_MEDS_events/.logs/`.
+    counts are logged per event in `<output_dir>/convert_to_MEDS_events/.logs/`.
 
 ## Linking resources
 

@@ -17,7 +17,7 @@ import polars as pl
 import pytest
 
 from fhir2meds.subject_ids import stable_subject_id
-from tests.test_e2e import assert_valid_meds_cohort, run_fhir2meds
+from tests.test_e2e import assert_valid_meds_cohort, run_fhir
 
 FIXTURES = Path(__file__).parent / "fixtures" / "synthea"
 SYNTHEA_VOCABS = {
@@ -70,13 +70,13 @@ def expected_events(rtype: str) -> set[tuple[int, str, datetime.datetime]]:
 
 @pytest.fixture(scope="module")
 def synthea_outputs(tmp_path_factory):
-    """Run fhir2meds once on the bulk NDJSON fixture and once on the equivalent per-patient Bundles."""
+    """Run the `FHIR` spec once on the bulk NDJSON fixture and once on the equivalent per-patient Bundles."""
     outputs = {}
     for layout in ("bulk", "bundles"):
-        root = tmp_path_factory.mktemp(layout)
-        result = run_fhir2meds(FIXTURES / layout, root, "dataset_name=SYNTHEA_FIXTURE")
+        out = tmp_path_factory.mktemp(layout) / "MEDS_cohort"
+        result = run_fhir(FIXTURES / layout, out, "overrides=['etl_metadata.dataset_name=SYNTHEA_FIXTURE']")
         assert result.returncode == 0, result.stderr[-3000:]
-        outputs[layout] = assert_valid_meds_cohort(root / "MEDS_cohort")
+        outputs[layout] = assert_valid_meds_cohort(out)
     return outputs
 
 
@@ -152,9 +152,10 @@ def test_external_synthea_dataset(name, tmp_path):
     raw = tmp_path / "raw"
     with urllib.request.urlopen(EXTERNAL_DATASETS[name]) as response:
         zipfile.ZipFile(io.BytesIO(response.read())).extractall(raw)
-    result = run_fhir2meds(raw, tmp_path / "out", f"dataset_name={name}")
+    out = tmp_path / "out"
+    result = run_fhir(raw, out, f"overrides=['etl_metadata.dataset_name={name}']")
     assert result.returncode == 0, result.stderr[-3000:]
-    data = assert_valid_meds_cohort(tmp_path / "out" / "MEDS_cohort")
-    n_patients = pl.read_parquet(tmp_path / "out" / "pre_MEDS" / "Patient.parquet").height
+    data = assert_valid_meds_cohort(out)
+    n_patients = pl.read_parquet(out / "fhir_pre_meds" / "Patient.parquet").height
     assert data["subject_id"].n_unique() == n_patients >= 10
     assert data.filter(pl.col("code") == "MEDS_BIRTH").height == n_patients

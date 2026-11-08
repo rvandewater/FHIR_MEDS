@@ -1,8 +1,9 @@
-"""End-to-end tests: FHIR files -> fhir2meds CLI -> a schema-valid MEDS cohort."""
+"""End-to-end tests: FHIR files -> `meds-extract-run spec=FHIR` -> a schema-valid MEDS cohort."""
 
 import json
+import os
 import subprocess
-import sys
+import sysconfig
 from pathlib import Path
 
 import polars as pl
@@ -10,18 +11,41 @@ import pyarrow.parquet as pq
 import pytest
 from meds import CodeMetadataSchema, DataSchema, SubjectSplitSchema
 
+from fhir2meds import MESSY_CFG, __version__
+from fhir2meds.stages import PRE_MEDS_STAGE
 from tests.conftest import SENTINEL
 
-# The tiny fixtures have a single patient, which cannot populate the default train/tuning/held_out splits.
-SINGLE_SPLIT = "etl_options={split_fracs:{train:1.0}}"
+SCRIPTS_DIR = Path(sysconfig.get_path("scripts"))
 
 
-def run_fhir2meds(raw_dir: Path, root: Path, *extra: str) -> subprocess.CompletedProcess:
+def run_fhir(
+    raw_dir: Path | None, out: Path, *extra: str, spec: str = "FHIR", env: dict | None = None
+) -> subprocess.CompletedProcess:
+    """`meds-extract-run spec=SPEC output_dir=OUT do_download=false input_dir=RAW_DIR EXTRA...`."""
+    command = [str(SCRIPTS_DIR / "meds-extract-run"), f"spec={spec}", f"output_dir={out}"]
+    if raw_dir is not None:
+        command += ["do_download=false", f"input_dir={raw_dir}"]
+    # MEDS-Transforms starts every stage as `MEDS_transform-stage` from PATH.
+    path = os.pathsep.join([str(SCRIPTS_DIR), os.environ.get("PATH", "")])
     return subprocess.run(
-        [sys.executable, "-m", "fhir2meds", f"raw_input_dir={raw_dir}", f"root_output_dir={root}", *extra],
-        capture_output=True,
-        text=True,
+        [*command, *extra], capture_output=True, text=True, env={**os.environ, "PATH": path, **(env or {})}
     )
+
+
+def single_split_spec(directory: Path) -> str:
+    """The `FHIR` spec with every subject in the train split, for the one-patient fixtures, which cannot
+    populate the default train/tuning/held_out splits (`split_fracs` is a mapping, which `overrides=` merges
+    rather than replaces)."""
+    text = MESSY_CFG.read_text()
+    assert "\netl:\n" in text
+    spec = directory / "messy_single_split.yaml"
+    spec.write_text(text.replace("\netl:\n", "\netl:\n  split_fracs: {train: 1.0}\n", 1))
+    return str(spec)
+
+
+def pipeline_log(out: Path) -> str:
+    log = out / ".logs" / "pipeline.log"
+    return log.read_text() if log.is_file() else ""
 
 
 def assert_valid_meds_cohort(cohort: Path) -> pl.DataFrame:
@@ -49,31 +73,58 @@ def assert_valid_meds_cohort(cohort: Path) -> pl.DataFrame:
 @pytest.mark.parametrize("fixture_name", ["mimic_like_dir", "synthea_like_dir"])
 def test_cli_end_to_end(fixture_name, request, tmp_path):
     raw_dir: Path = request.getfixturevalue(fixture_name)
-    result = run_fhir2meds(
-        raw_dir, tmp_path / "out", SINGLE_SPLIT, "dataset_name=TEST", "dataset_version=0.1"
+    out = tmp_path / "out"
+    result = run_fhir(
+        raw_dir,
+        out,
+        "dataset_version=0.1",
+        "overrides=['etl_metadata.dataset_name=TEST']",
+        spec=single_split_spec(tmp_path),
     )
     assert result.returncode == 0, result.stderr[-3000:]
-    # Resource content must never be echoed to the console.
-    assert SENTINEL not in result.stdout + result.stderr
+    # Resource content must never be echoed to the console or the pipeline log.
+    assert SENTINEL not in result.stdout + result.stderr + pipeline_log(out)
 
-    cohort = tmp_path / "out" / "MEDS_cohort"
-    data = assert_valid_meds_cohort(cohort)
+    data = assert_valid_meds_cohort(out)
     codes = set(data["code"].to_list())
     assert "MEDS_BIRTH" in codes
     assert any(c.startswith("Encounter//") for c in codes)
     assert any(c.startswith("Encounter_END//") for c in codes)
-    metadata = json.loads((cohort / "metadata" / "dataset.json").read_text())
+    metadata = json.loads((out / "metadata" / "dataset.json").read_text())
     assert metadata["dataset_name"] == "TEST"
-    assert metadata["etl_name"] == "fhir2meds"
-    # The effective MESSY spec is saved for provenance.
-    assert (tmp_path / "out" / "pre_MEDS" / "messy.yaml").exists()
+    assert metadata["dataset_version"] == "0.1"
+    assert metadata["code_modifier_columns"] == ["unit"]
+    # The flattened tables stay beside the cohort; the synthesized pipeline config is the run's provenance.
+    assert (out / PRE_MEDS_STAGE / "Patient.parquet").exists()
+    assert (out / ".meds_extract_run" / "pipeline.yaml").exists()
 
 
-def test_refuses_to_overwrite_without_flag(synthea_like_dir, tmp_path):
-    assert run_fhir2meds(synthea_like_dir, tmp_path / "out", SINGLE_SPLIT).returncode == 0
-    second = run_fhir2meds(synthea_like_dir, tmp_path / "out", SINGLE_SPLIT)
-    assert second.returncode != 0
-    assert "do_overwrite" in second.stderr
-    assert (
-        run_fhir2meds(synthea_like_dir, tmp_path / "out", SINGLE_SPLIT, "do_overwrite=true").returncode == 0
-    )
+def test_resource_types_the_input_lacks_are_written_without_rows(synthea_like_dir, tmp_path):
+    """The pre-stage writes every table the spec reads, so one spec fits every FHIR export."""
+    out = tmp_path / "out"
+    result = run_fhir(synthea_like_dir, out, "skip_stages=[sumeds_enrich]", spec=single_split_spec(tmp_path))
+    assert result.returncode == 0, result.stderr[-3000:]
+    # Resource types the input lacks are written without rows.
+    assert pl.read_parquet(out / PRE_MEDS_STAGE / "CarePlan.parquet").height == 0
+    metadata = json.loads((out / "metadata" / "dataset.json").read_text())
+    assert metadata["dataset_name"] == "FHIR"
+
+
+def test_a_second_run_resumes_instead_of_redoing(synthea_like_dir, tmp_path):
+    """The same command on a finished cohort exits at once (MEDS-Extract's done markers): to convert again,
+    use a new output_dir."""
+    out, spec = tmp_path / "out", single_split_spec(tmp_path)
+    args = (synthea_like_dir, out, "skip_stages=[sumeds_enrich]")
+    assert run_fhir(*args, spec=spec).returncode == 0
+    shards = {p: p.stat().st_mtime_ns for p in (out / "data").rglob("*.parquet")}
+    assert shards and (out / ".logs" / "_all_stages.done").exists()
+
+    assert run_fhir(*args, spec=spec).returncode == 0
+    assert {p: p.stat().st_mtime_ns for p in (out / "data").rglob("*.parquet")} == shards
+
+
+def test_registered_spec_stamps_its_name_and_the_package_version(plain_cohort):
+    metadata = json.loads((plain_cohort / "metadata" / "dataset.json").read_text())
+    assert metadata["dataset_name"] == "FHIR"
+    # `<raw version>:<package version>`; a FHIR export of your own has no known version (dataset_version=).
+    assert metadata["dataset_version"] == f"unknown:{__version__}"

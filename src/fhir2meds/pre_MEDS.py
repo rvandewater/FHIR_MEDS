@@ -18,6 +18,7 @@ Everything after this (event construction, subject sharding, splits, metadata) i
 import logging
 import shutil
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -435,9 +436,17 @@ def finalize_tables(
     pre_MEDS_dir: Path,
     flatten_spec: dict[str, dict],
     keep_local_time: bool = False,
+    required_tables: Iterable[str] = (),
 ) -> dict[str, int]:
-    """Resolve links, parse times and write ``<pre_MEDS_dir>/<ResourceType>.parquet``. Returns row counts."""
+    """Resolve links, parse times and write ``<pre_MEDS_dir>/<ResourceType>.parquet``. Returns row counts.
+
+    A resource type in ``required_tables`` that the input does not have is written without rows, with the
+    columns it would have had, so that a MESSY spec listing it finds it.
+    """
     pre_MEDS_dir.mkdir(parents=True, exist_ok=True)
+    required = set(required_tables)
+    if unknown := sorted(required - set(flatten_spec) - {"Patient"}):
+        raise ValueError(f"No flattening spec for the required table(s) {unknown}; see configs/flatten.yaml.")
 
     patients = writer.scan("Patient").collect().unique("patient_id", keep="first", maintain_order=True)
     patients = patients.filter(pl.col("patient_id").is_not_null())
@@ -479,7 +488,7 @@ def finalize_tables(
     )
 
     for rtype, type_spec in flatten_spec.items():
-        if writer.n_parts[rtype] == 0:
+        if writer.n_parts[rtype] == 0 and rtype not in required:
             continue
         lf = writer.scan(rtype)
         # De-duplicate resources shipped in more than one file (e.g. MIMIC's Specimen and SpecimenLab).
@@ -537,8 +546,12 @@ def run_pre_MEDS(
     subject_id_suffixes: tuple[str, ...] = ("/identifier/patient",),
     keep_local_time: bool = False,
     max_resources_per_type: int | None = None,
+    required_tables: Iterable[str] = (),
 ) -> dict[str, int]:
-    """Flatten all FHIR resources in ``raw_input_dir`` into ``pre_MEDS_dir``. Returns row counts per table."""
+    """Flatten all FHIR resources in ``raw_input_dir`` into ``pre_MEDS_dir``. Returns row counts per table.
+
+    Every resource type in ``required_tables`` is written, without rows if the input has none.
+    """
     flatten_spec = load_flatten_spec(fhir_version)
     staging_dir = pre_MEDS_dir / ".staging"
     if staging_dir.exists():
@@ -547,7 +560,7 @@ def run_pre_MEDS(
         raw_input_dir, staging_dir, flatten_spec, tuple(subject_id_suffixes), max_resources_per_type
     )
     logger.info(f"Staged resources: {dict(counts)}")
-    row_counts = finalize_tables(writer, pre_MEDS_dir, flatten_spec, keep_local_time)
+    row_counts = finalize_tables(writer, pre_MEDS_dir, flatten_spec, keep_local_time, required_tables)
     shutil.rmtree(staging_dir)
     logger.info(f"pre-MEDS tables: {row_counts}")
     return row_counts

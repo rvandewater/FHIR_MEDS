@@ -7,6 +7,7 @@ import logging
 from collections import Counter
 
 import polars as pl
+import pytest
 
 from fhir2meds.fhir_parser import (
     iter_fhir_files,
@@ -146,3 +147,25 @@ def test_resources_for_unknown_patients_are_dropped(tmp_path):
     (raw / "all.ndjson").write_text("".join(json.dumps(r) + "\n" for r in lines))
     counts = run_pre_MEDS(raw, tmp_path / "pre_MEDS")
     assert counts["Observation"] == 1
+
+
+def test_required_tables_without_resources_are_written_without_rows(
+    mimic_like_dir, synthea_like_dir, tmp_path
+):
+    """A table the MESSY spec reads exists even if the input has none of its resources, with the columns it
+    would have had (the MIMIC-like input has no Immunization, the Synthea-like one has one)."""
+    with_rows, without = tmp_path / "with_rows", tmp_path / "without"
+    run_pre_MEDS(synthea_like_dir, with_rows)
+    counts = run_pre_MEDS(mimic_like_dir, without, required_tables=["Patient", "Immunization", "CarePlan"])
+
+    assert counts["Immunization"] == counts["CarePlan"] == 0
+    empty = pl.read_parquet(without / "Immunization.parquet")
+    assert empty.height == 0
+    assert empty.schema == pl.read_parquet(with_rows / "Immunization.parquet").schema
+    # Without being required, a resource type without resources is not written.
+    assert not (without / "DocumentReference.parquet").exists()
+
+
+def test_required_tables_must_have_a_flattening_spec(mimic_like_dir, tmp_path):
+    with pytest.raises(ValueError, match="NoSuchResource"):
+        run_pre_MEDS(mimic_like_dir, tmp_path / "out", required_tables=["NoSuchResource"])

@@ -1,8 +1,9 @@
 # Contributing
 
-`fhir2meds` converts FHIR resources to MEDS in two stages: a FHIR-specific **pre-MEDS** step that flattens
-each resource type into a table, and a generic **MEDS-Extract 0.8** step that builds events from those tables.
-A final **suMEDS** step adds vocabulary titles and parents to `metadata/codes.parquet`.
+`fhir2meds` converts FHIR resources to MEDS as one MEDS-Extract spec, registered as `FHIR`
+(`meds-extract-run spec=FHIR`): a FHIR-specific **pre-MEDS** pre-stage (`fhir_pre_meds`) flattens each resource
+type into a table, the generic **MEDS-Extract 0.8.1** stages build events from those tables, and a final
+**suMEDS** stage (`sumeds_enrich`) adds vocabulary titles and parents to `metadata/codes.parquet`.
 [Design choices](docs/design.md) explains why; this page covers how to work on it.
 
 ## Where things live
@@ -11,10 +12,10 @@ A final **suMEDS** step adds vocabulary titles and parents to `metadata/codes.pa
 | -------------------------------------------------- | ----------------------------------------------------------- |
 | which FHIR elements are read into pre-MEDS tables  | `src/fhir2meds/configs/flatten.yaml`                        |
 | which MEDS events are built from those tables      | `src/fhir2meds/configs/messy.yaml`                          |
-| where the MIMIC-IV FHIR (demo) download comes from | `src/fhir2meds/configs/sources.yaml`                        |
-| CLI defaults                                       | `src/fhir2meds/configs/main.yaml`                           |
+| where the MIMIC-IV FHIR (demo) download comes from | `src/fhir2meds/configs/messy.yaml` (`sources:`)             |
+| options of the pre-MEDS stage                      | `src/fhir2meds/stages.py`                                   |
 | parsing, flattening, ids, times, references        | `src/fhir2meds/pre_MEDS.py`, `src/fhir2meds/fhir_parser.py` |
-| how MEDS-Extract is invoked                        | `src/fhir2meds/extract.py`                                  |
+| which stages run, and with which options           | `src/fhir2meds/configs/messy.yaml` (`etl:`)                 |
 | which codes suMEDS enriches, and how               | `src/fhir2meds/sumeds_rules.yaml`                           |
 
 Most mapping changes need only the two YAML files; [Customizing the mapping](docs/customizing.md) walks

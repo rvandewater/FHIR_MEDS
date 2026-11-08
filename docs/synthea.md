@@ -81,7 +81,8 @@ java -jar synthea-with-dependencies.jar -s 42 -cs 42 -r 20250101 -p 10 \
 	--exporter.fhir.excluded_resources Claim,ExplanationOfBenefit,Provenance \
 	--exporter.hospital.fhir.export false --exporter.practitioner.fhir.export false \
 	Massachusetts
-fhir2meds raw_input_dir=synthea_out/fhir root_output_dir=synthea_meds dataset_name=SYNTHEA
+meds-extract-run spec=FHIR output_dir=synthea_meds do_download=false input_dir=synthea_out/fhir \
+	"overrides=['etl_metadata.dataset_name=SYNTHEA']"
 ```
 
 - `-s` seeds the patients, `-cs` the clinicians, and `-r` fixes the reference date. Pin the jar version as well,

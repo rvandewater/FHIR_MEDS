@@ -14,25 +14,27 @@
 
 ```bash
 pip install fhir2meds
-fhir2meds raw_input_dir=path/to/fhir root_output_dir=output dataset_name=MY_DATA
+meds-extract-run spec=FHIR output_dir=fhir_meds do_download=false input_dir=path/to/fhir \
+	"overrides=['etl_metadata.dataset_name=MY_DATA']"
 ```
 
-The MEDS dataset is written to `output/MEDS_cohort/`. See [Usage](usage.md) for all options.
+The ETL is one [MEDS-Extract](https://github.com/mmcdermott/MEDS_extract) spec, registered as `FHIR`. The MEDS
+dataset is written to `fhir_meds/` (`data/` and `metadata/`). See [Usage](usage.md) for all options.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    A["FHIR NDJSON / Bundles"] --> B["pre-MEDS<br/>(flatten.yaml)"] --> C["flat parquet<br/>per resource type"] --> D["MEDS-Extract<br/>(messy.yaml)"] --> E["MEDS cohort"] --> F["suMEDS-enrich<br/>(sumeds_rules.yaml)"]
+    A["FHIR NDJSON / Bundles"] --> B["fhir_pre_meds<br/>(flatten.yaml)"] --> C["flat parquet<br/>per resource type"] --> D["MEDS-Extract<br/>(messy.yaml)"] --> E["MEDS cohort"] --> F["sumeds_enrich<br/>(sumeds_rules.yaml)"]
 ```
 
-1. **pre-MEDS** streams FHIR resources and flattens each resource type into a table. It assigns integer subject ids,
+1. **pre-MEDS** (the `fhir_pre_meds` pre-stage) streams FHIR resources and flattens each resource type into a table. It assigns integer subject ids,
    resolves medication references, and normalizes timestamps.
 2. **MEDS-Extract** builds events from those tables with a declarative spec, then shards, splits and writes MEDS
    metadata.
 3. **suMEDS** adds vocabulary parents (and titles where FHIR has no `display`) to `metadata/codes.parquet`, in
    place, and records that in `metadata/dataset.json`. A failure (e.g. without internet) does not fail the run.
-   `do_enrich=false` skips it.
+   `'skip_stages=[sumeds_enrich]'` skips it.
 
 The reasoning behind each step is in [Design choices](design.md). To change which FHIR elements are read or which
 events are produced, see [Customizing the mapping](customizing.md).

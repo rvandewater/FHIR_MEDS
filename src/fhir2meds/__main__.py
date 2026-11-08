@@ -1,84 +1,126 @@
-import logging
+"""Deprecated `fhir2meds` / `FHIR_MEDS` / `MEDS_ON_FHIR` commands: they run `meds-extract-run spec=FHIR`.
+
+The ETL is the MEDS-Extract spec registered as `FHIR`, run with `meds-extract-run` (see the README). These
+commands only translate the arguments of the old converter for one more release, and will be removed:
+
+    fhir2meds raw_input_dir=RAW root_output_dir=ROOT dataset_name=NAME dataset_version=1.0 [fhir_version=R5]
+
+runs
+
+    meds-extract-run spec=FHIR output_dir=ROOT/MEDS_cohort do_download=false input_dir=RAW \
+        dataset_version=1.0 "overrides=['etl_metadata.dataset_name=NAME', '++stage_cfg.fhir_version=R5']"
+
+The MEDS cohort stays in `ROOT/MEDS_cohort`; the flattened tables move to `ROOT/MEDS_cohort/fhir_pre_meds`.
+"""
+
 import os
 import shutil
+import sys
+import sysconfig
 from pathlib import Path
 
-import hydra
-from omegaconf import DictConfig, OmegaConf
-from sumeds.cli import build_enrich_parser, enrich_main
+from .stages import PRE_MEDS_DEFAULTS
 
-from . import MAIN_CFG, __version__
-from .extract import download_raw_data, run_meds_extract, write_effective_spec
-from .pre_MEDS import run_pre_MEDS
+#: Old converter options that are now options of the `fhir_pre_meds` stage (`max_events` included).
+STAGE_OPTIONS = frozenset(PRE_MEDS_DEFAULTS)
+#: `meds-extract-run` options, passed on unchanged.
+RUN_OPTIONS = frozenset(
+    {
+        "dataset_version",
+        "do_cleanup_intermediates",
+        "skip_stages",
+        "stage_runner_fp",
+        "do_profile",
+        "overrides",
+    }
+)
 
-logger = logging.getLogger(__name__)
 
-# Fix MAIN_CFG for hydra.main
-MAIN_CFG_PATH = str(MAIN_CFG)
-MAIN_CFG_PARENT = os.path.dirname(MAIN_CFG_PATH)
-MAIN_CFG_STEM = os.path.splitext(os.path.basename(MAIN_CFG_PATH))[0]
+def _bool(value: str) -> bool:
+    return value.strip().lower() in {"true", "1", "yes"}
 
 
-@hydra.main(version_base=None, config_path=MAIN_CFG_PARENT, config_name=MAIN_CFG_STEM)
-def main(cfg: DictConfig) -> None:
-    """Run the full FHIR -> MEDS pipeline: (download) -> pre-MEDS flattening -> MEDS-Extract -> suMEDS."""
-    raw_input_dir = Path(cfg.raw_input_dir)
-    pre_MEDS_dir = Path(cfg.pre_MEDS_dir)
-    MEDS_cohort_dir = Path(cfg.MEDS_cohort_dir)
+def translate(args: list[str], env: dict[str, str] | None = None) -> list[str]:
+    """The `meds-extract-run` arguments for the old converter's arguments `args`.
 
-    # suMEDS-enrich arguments; a later --rules in enrich_args overrides the packaged rules. Checked now, not
-    # after the pipeline has run. A failed enrichment (e.g. no internet) leaves codes.parquet as it was,
-    # records that in metadata/dataset.json and exits 0, as `suMEDS-extract` does; `enrich_args=[--strict]`
-    # fails instead.
-    codes_fp = str(MEDS_cohort_dir.resolve() / "metadata" / "codes.parquet")
-    enrich_args = [str(arg) for arg in cfg.enrich_args]
-    enrich_argv = [codes_fp, "-o", codes_fp, "--rules", "FHIR", *enrich_args]
-    if {"--soft-fail", "--strict"}.isdisjoint(enrich_args):
-        enrich_argv.append("--soft-fail")
-    if cfg.do_enrich:
-        build_enrich_parser().parse_args(enrich_argv)
+    `DATASET_NAME` and `RAW_DATASET_VERSION` in `env` name the build, as they did for the old converter.
 
-    if cfg.do_overwrite:
-        for d in (pre_MEDS_dir, MEDS_cohort_dir):
-            if d.exists():
-                logger.info(f"Removing existing {d}.")
-                shutil.rmtree(d)
-    elif MEDS_cohort_dir.exists() and any(MEDS_cohort_dir.iterdir()):
-        raise FileExistsError(f"{MEDS_cohort_dir} is not empty; pass do_overwrite=true to replace it.")
-
-    # Step 0: Data downloading
-    if cfg.do_download:  # pragma: no cover
-        logger.info(f"Downloading {'demo ' if cfg.do_demo else ''}data to {raw_input_dir}.")
-        download_raw_data(raw_input_dir, do_demo=cfg.do_demo)
+    Examples:
+        >>> translate(
+        ...     ["raw_input_dir=/raw", "root_output_dir=/root", "dataset_name=X", "fhir_version=R5"], env={}
+        ... )
+        ['spec=FHIR', 'output_dir=/root/MEDS_cohort', 'do_download=false', 'input_dir=/raw',
+         "overrides=['etl_metadata.dataset_name=X','++stage_cfg.fhir_version=R5']"]
+        >>> translate(["root_output_dir=/root", "do_download=true", "do_demo=true", "do_enrich=false"],
+        ...           env={"RAW_DATASET_VERSION": "2.1.0"})
+        ['spec=FHIR', 'output_dir=/root/MEDS_cohort', 'dataset_key=demo', 'download_dest_dir=/root/raw_input',
+         'skip_stages=[sumeds_enrich]', 'dataset_version=2.1.0']
+        >>> translate(["root_output_dir=/root", "enrich_args=[--strict]"], env={})
+        Traceback (most recent call last):
+            ...
+        ValueError: fhir2meds no longer takes enrich_args=; run meds-extract-run spec=FHIR (see the README).
+    """
+    env = os.environ if env is None else env
+    given = {}
+    for arg in args:
+        key, sep, value = arg.lstrip("+").partition("=")
+        if not sep:
+            raise ValueError(f"Expected key=value arguments, got {arg!r}.")
+        given[key] = value
+    if "root_output_dir" not in given:
+        raise ValueError("root_output_dir= is required.")
+    root = Path(given.pop("root_output_dir"))
+    raw = given.pop("raw_input_dir", str(root / "raw_input"))
+    argv = ["spec=FHIR", f"output_dir={root / 'MEDS_cohort'}"]
+    do_demo = _bool(given.pop("do_demo", "false"))
+    if _bool(given.pop("do_download", "false")):
+        argv += [f"dataset_key={'demo' if do_demo else 'mimic'}", f"download_dest_dir={raw}"]
     else:
-        logger.info("Skipping data download.")
+        argv += ["do_download=false", f"input_dir={raw}"]
+    if not _bool(given.pop("do_enrich", "true")):
+        argv.append("skip_stages=[sumeds_enrich]")
+    given.pop("do_overwrite", None)  # handled by main()
+    name = given.pop("dataset_name", env.get("DATASET_NAME"))
+    version = given.pop("dataset_version", env.get("RAW_DATASET_VERSION"))
+    if version:
+        argv.append(f"dataset_version={version}")
+    overrides = [f"etl_metadata.dataset_name={name}"] if name else []
+    for key, value in given.items():
+        if key in STAGE_OPTIONS:
+            overrides.append(f"++stage_cfg.{key}={value}")
+        elif key in RUN_OPTIONS:
+            argv.append(f"{key}={value}")
+        else:
+            raise ValueError(
+                f"fhir2meds no longer takes {key}=; run meds-extract-run spec=FHIR (see the README)."
+            )
+    if overrides:
+        argv.append("overrides=[" + ",".join(f"'{o}'" for o in overrides) + "]")
+    return argv
 
-    # Step 1: FHIR -> flat, typed pre-MEDS tables (the only FHIR-specific step).
-    row_counts = run_pre_MEDS(
-        raw_input_dir,
-        pre_MEDS_dir,
-        fhir_version=cfg.fhir_version,
-        subject_id_suffixes=tuple(cfg.subject_id_identifier_suffixes),
-        keep_local_time=cfg.keep_local_time,
-        max_resources_per_type=cfg.get("max_events"),
-    )
 
-    # Step 2: pre-MEDS tables -> MEDS with MEDS-Extract, driven by configs/messy.yaml.
-    spec_fp = pre_MEDS_dir / "messy.yaml"
-    etl_options = OmegaConf.to_container(cfg.etl_options, resolve=True) if cfg.get("etl_options") else None
-    tables = write_effective_spec(
-        pre_MEDS_dir, spec_fp, str(cfg.dataset_name), str(cfg.dataset_version), etl_options
-    )
-    logger.info(
-        f"Extracting MEDS events from {len(tables)} tables: {tables} ({sum(row_counts.values())} rows)."
-    )
-    run_meds_extract(spec_fp, pre_MEDS_dir, MEDS_cohort_dir, __version__, cfg.get("stage_runner_fp"))
+def main() -> None:
+    """Run `meds-extract-run spec=FHIR` with the old converter's arguments, after a deprecation warning."""
+    from MEDS_extract.run.cli import main as meds_extract_run
 
-    # Step 3: vocabulary titles and parents for metadata/codes.parquet, in place (see sumeds_rules.yaml),
-    # recorded in metadata/dataset.json.
-    if cfg.do_enrich:
-        enrich_main(enrich_argv)
-    logger.info(f"Done. MEDS cohort written to {MEDS_cohort_dir}.")
+    args = sys.argv[1:]
+    prog = Path(sys.argv[0]).name
+    try:
+        argv = translate(args)
+    except ValueError as e:
+        sys.exit(f"{prog}: {e}")
+    print(
+        f"{prog} is deprecated and will be removed; it runs:\n  meds-extract-run {' '.join(argv)}",
+        file=sys.stderr,
+    )
+    given = dict(a.lstrip("+").partition("=")[::2] for a in args)
+    if _bool(given.get("do_overwrite", "false")):
+        # As the old converter did, start from an empty output.
+        shutil.rmtree(Path(given["root_output_dir"]) / "MEDS_cohort", ignore_errors=True)
+    # MEDS-Transforms starts every stage as `MEDS_transform-stage` from PATH: use this environment's.
+    os.environ["PATH"] = os.pathsep.join([sysconfig.get_path("scripts"), os.environ.get("PATH", "")])
+    sys.argv = ["meds-extract-run", *argv]
+    meds_extract_run()
 
 
 if __name__ == "__main__":

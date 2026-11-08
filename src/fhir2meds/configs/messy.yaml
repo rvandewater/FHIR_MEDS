@@ -1,8 +1,12 @@
-# MEDS-Extract (0.8) event specification ("MESSY") for the flat tables written by fhir2meds' pre-MEDS stage.
+# The FHIR ETL as one MEDS-Extract spec (MESSY), registered as `FHIR`:
 #
-# Every top-level key below names a pre-MEDS table (<pre_MEDS_dir>/<ResourceType>.parquet). At run time fhir2meds
-# drops tables that the input did not produce and fills in the `etl:` block (dataset name/version), then saves the
-# effective spec next to the pre-MEDS tables for provenance.
+#   meds-extract-run spec=FHIR output_dir=OUT do_download=false input_dir=FHIR_DIR
+#
+# The pre-stage `fhir_pre_meds` (src/fhir2meds/stages.py) flattens the FHIR resources (NDJSON / Bundles, optionally
+# gzipped) into one table per resource type, <OUT>/fhir_pre_meds/<ResourceType>.parquet, which the top-level keys
+# below name. It writes every table listed here, without rows when the input has none of that resource type.
+# The post-stage `sumeds_enrich` adds vocabulary titles and parents to metadata/codes.parquet with the rules
+# registered as `FHIR` (src/fhir2meds/sumeds_rules.yaml), and records that in metadata/dataset.json.
 #
 # Values are dftly expressions: `$col` is a column, f"..." interpolates, `??` coalesces. All times were already
 # parsed to naive (UTC by default) datetimes by pre-MEDS, so no format casts are needed. Rows whose code or time
@@ -11,8 +15,36 @@
 # Codes follow `<ResourceType>//<VOCAB>//<code>`, e.g. `Observation//LOINC//8867-4`, `Condition//ICD10CM//N179`.
 
 etl:
+  # This spec converts any FHIR export, so it sets no license or description URI. Name a build with
+  # "overrides=['etl_metadata.dataset_name=MY_DATASET']" and dataset_version=MY_VERSION.
   dataset_name: FHIR
-  raw_dataset_version: unknown
+  # The unit of an Observation value modifies its code.
+  code_modifier_columns: [unit]
+  pre_stages:
+    - fhir_pre_meds
+  post_stages:
+    - sumeds_enrich:
+        rules: FHIR
+
+# Where raw FHIR data can be downloaded from (`meds-extract-run spec=FHIR ... dataset_key=<bucket>`):
+# `demo` is the open-access MIMIC-IV FHIR demo, `mimic` the credentialed MIMIC-IV FHIR release (it needs
+# PHYSIONET_USER / PHYSIONET_PASSWORD in the environment). There is no `dataset` bucket: point input_dir at your own
+# FHIR export (version `unknown` unless dataset_version= is given).
+sources:
+  dataset_version:
+    dataset: unknown
+    demo: "2.1.0"
+    mimic: "2.1"
+  demo:
+    - type: physionet
+      base_url: https://physionet.org/files/mimic-iv-fhir-demo/${sources.dataset_version.demo}
+      include: ["fhir/*.ndjson.gz"]
+  mimic:
+    - type: physionet
+      base_url: https://physionet.org/files/mimic-iv-fhir/${sources.dataset_version.mimic}
+      username: ${oc.env:PHYSIONET_USER,null}
+      password: ${oc.env:PHYSIONET_PASSWORD,null}
+      include: ["fhir/*.ndjson.gz"]
 
 _defaults:
   subject_id: $subject_id
