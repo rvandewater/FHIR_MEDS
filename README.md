@@ -37,7 +37,7 @@ runs with MEDS-Extract's own command (`meds-extract-run spec=FHIR`, MEDS-Extract
     FHIR timestamps.
 2. **MEDS-Extract**'s canonical stages: turn those tables into MEDS events according to a declarative MESSY spec
     (`configs/messy.yaml`), then shard by subject, split into train/tuning/held_out and write MEDS metadata.
-3. **`sumeds_enrich`** ([suMEDS](https://github.com/rvandewater/SumMEDS) 0.6.2, on by default): add vocabulary
+3. **`sumeds_enrich`** ([suMEDS](https://github.com/rvandewater/SumMEDS) 0.6.3, on by default): add vocabulary
     titles and parents to `metadata/codes.parquet` (see
     [Enriching code metadata with suMEDS](#enriching-code-metadata-with-sumeds)). A failed enrichment (e.g.
     without internet) does not fail the run.

@@ -15,9 +15,11 @@ requires-python = ">=3.11.4,<3.14"
 # MEDS-Extract 0.8.1 runs the spec's extension stages (`etl.pre_stages` / `etl.post_stages`); suMEDS 0.6.2
 # registers the `sumeds_enrich` stage, which enriches metadata/codes.parquet, records that in
 # metadata/dataset.json, and soft-fails (e.g. on a hospital server without internet) so the extraction is kept.
+# suMEDS 0.6.3 summarizes code metadata keyed by `code` alone, as MEDS-Extract writes it, although the
+# spec declares `unit` as a code modifier (0.6.2 fails with `unable to find column "unit"`).
 dependencies = [
     "MEDS-extract[download]>=0.8.1,<0.9",
-    "sumeds>=0.6.2,<0.7",
+    "sumeds>=0.6.3,<0.7",
     "meds~=0.4.0",
     "polars>=1.38,<2",
     "pyarrow",
