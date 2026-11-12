@@ -6,4 +6,5 @@ try:
     __version__ = version(__package_name__)
 except PackageNotFoundError:  # pragma: no cover
     __version__ = "unknown"
-MAIN_CFG = files(__package_name__).joinpath("configs/main.yaml")
+# The MESSY spec registered as `FHIR` (see pyproject.toml).
+MESSY_CFG = files(__package_name__).joinpath("configs/messy.yaml")

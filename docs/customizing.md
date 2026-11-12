@@ -53,10 +53,12 @@ Observation:
     text_value: $value_text
 ```
 
-Tables listed in `messy.yaml` that the input doesn't contain are dropped at run time. The spec actually used is
-saved to `pre_MEDS/messy.yaml`.
+Every table listed in `messy.yaml` is written by the `fhir_pre_meds` stage, without rows when the input has none
+of that resource type, so the spec needs no changes per dataset. Run a modified copy of the spec by path:
+`meds-extract-run spec=./my_messy.yaml output_dir=... do_download=false input_dir=path/to/fhir`.
 
 !!! tip
 
-    Inspect `pre_MEDS/<ResourceType>.parquet` to see which columns are available, and rerun only the MEDS-Extract
-    stage with `meds-extract-run spec=output/pre_MEDS/messy.yaml input_dir=output/pre_MEDS output_dir=... do_download=false`.
+    Inspect `<output_dir>/fhir_pre_meds/<ResourceType>.parquet` to see which columns are available. To rerun only
+    the MEDS-Extract stages with a changed spec, delete `<output_dir>/.logs/*.done` except `fhir_pre_meds.done`, and
+    run the same command with `spec=./my_messy.yaml`.

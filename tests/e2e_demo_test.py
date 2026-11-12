@@ -1,60 +1,27 @@
+import json
 import os
-import subprocess
-import sys
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import pytest
+
+from tests.test_e2e import assert_valid_meds_cohort, run_fhir
 
 
 @pytest.mark.skipif(
     os.environ.get("FHIR_MEDS_RUN_DOWNLOAD_TESTS") != "1",
     reason="Downloads the MIMIC-IV FHIR demo from PhysioNet; set FHIR_MEDS_RUN_DOWNLOAD_TESTS=1 to run.",
 )
-def test_e2e():
-    with TemporaryDirectory() as temp_dir:
-        root = Path(temp_dir)
+def test_e2e(tmp_path: Path, monkeypatch):
+    """`meds-extract-run spec=FHIR dataset_key=demo` downloads the MIMIC-IV FHIR demo and converts it."""
+    # The published packs, not the test fixture's (conftest.py).
+    monkeypatch.delenv("SUMEDS_ONTOLOGY_SOURCE", raising=False)
+    out = tmp_path / "MEDS_cohort"
+    result = run_fhir(None, out, "dataset_key=demo")
+    assert result.returncode == 0, f"stdout:\n{result.stdout[-5000:]}\nstderr:\n{result.stderr[-5000:]}"
 
-        do_overwrite = True
-        do_demo = True
-        do_download = True
-
-        command_parts = [
-            f"{sys.executable} -m fhir2meds",
-            f"root_output_dir={str(root.resolve())}",
-            f"do_download={do_download}",
-            f"do_overwrite={do_overwrite}",
-            f"do_demo={do_demo}",
-        ]
-
-        full_cmd = " ".join(command_parts)
-        command_out = subprocess.run(full_cmd, shell=True, capture_output=True)
-
-        stderr = command_out.stderr.decode()
-        stdout = command_out.stdout.decode()
-
-        err_message = (
-            f"Command failed with return code {command_out.returncode}.\n"
-            f"Command stdout:\n{stdout}\n"
-            f"Command stderr:\n{stderr}"
-        )
-        assert command_out.returncode == 0, err_message
-
-        data_path = root / "MEDS_cohort" / "data"
-        data_files = list(data_path.glob("*.parquet")) + list(data_path.glob("**/*.parquet"))
-
-        all_files = [x for x in data_path.glob("**/*") if x.is_file()]
-
-        assert len(data_files) > 0, f"No data files found in {data_path}; found {all_files}"
-
-        metadata_path = root / "MEDS_cohort" / "metadata"
-        all_files = [x for x in metadata_path.glob("**/*") if x.is_file()]
-
-        dataset_metadata = metadata_path / "dataset.json"
-        assert dataset_metadata.exists(), f"Dataset metadata not found in {metadata_path}; found {all_files}"
-
-        codes_metadata = metadata_path / "codes.parquet"
-        assert codes_metadata.exists(), f"Codes metadata not found in {metadata_path}; found {all_files}"
-
-        subject_splits = metadata_path / "subject_splits.parquet"
-        assert subject_splits.exists(), f"Subject splits not found in {metadata_path}; found {all_files}"
+    data = assert_valid_meds_cohort(out)
+    assert data["subject_id"].n_unique() == 100
+    dataset = json.loads((out / "metadata" / "dataset.json").read_text())
+    assert dataset["dataset_version"].startswith("2.1.0:")
+    # Enriched, or soft-failed (e.g. GitHub unreachable): either way the run succeeds and says so.
+    assert dataset["sumeds_enrichment"]["rules"] == "FHIR"

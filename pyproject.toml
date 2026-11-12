@@ -9,8 +9,17 @@ description = "Convert HL7 FHIR (R4/R5) resources to the MEDS format with MEDS-E
 authors = [ { name = "Robin P. van de Water", email = "robin.vandewater@hpi.de" } ]
 readme = "README.md"
 requires-python = ">=3.11.4,<3.14"
+# MEDS-Extract and suMEDS are capped below their next minor: their 0.x minors are breaking (MESSY syntax,
+# runner CLI, rules format), so raise the caps deliberately when migrating. The ETL is the MEDS-Extract spec
+# registered below as `FHIR`, run with `meds-extract-run` (the `[download]` extra fetches MIMIC-IV FHIR).
+# MEDS-Extract 0.8.1 runs the spec's extension stages (`etl.pre_stages` / `etl.post_stages`); suMEDS 0.6.2
+# registers the `sumeds_enrich` stage, which enriches metadata/codes.parquet, records that in
+# metadata/dataset.json, and soft-fails (e.g. on a hospital server without internet) so the extraction is kept.
+# suMEDS 0.6.3 summarizes code metadata keyed by `code` alone, as MEDS-Extract writes it, although the
+# spec declares `unit` as a code modifier (0.6.2 fails with `unable to find column "unit"`).
 dependencies = [
-    "MEDS-extract[download]~=0.7.1",
+    "MEDS-extract[download]>=0.8.1,<0.9",
+    "sumeds>=0.6.3,<0.7",
     "meds~=0.4.0",
     "polars>=1.38,<2",
     "pyarrow",
@@ -27,12 +36,25 @@ local_parallelism = ["hydra-joblib-launcher"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.26"]
 
 [tool.setuptools.package-data]
-fhir2meds = ["configs/*.yaml"]
+fhir2meds = ["configs/*.yaml", "sumeds_rules.yaml"]
 
+# Deprecated: they run `meds-extract-run spec=FHIR` with the old converter's arguments, for one more release.
 [project.scripts]
 fhir2meds = "fhir2meds.__main__:main"
 FHIR_MEDS = "fhir2meds.__main__:main"
 MEDS_ON_FHIR = "fhir2meds.__main__:main"
+
+# The ETL is one MEDS-Extract spec, registered as `FHIR`: `meds-extract-run spec=FHIR ...`. FHIR parsing is the
+# pre-stage registered below, and suMEDS's `sumeds_enrich` stage enriches the result with the rules registered
+# as `FHIR` (also for `suMEDS-enrich --rules FHIR`).
+[project.entry-points."MEDS_extract.pipelines"]
+FHIR = "fhir2meds.configs:messy.yaml"
+
+[project.entry-points."MEDS_transforms.stages"]
+fhir_pre_meds = "fhir2meds.stages:pre_meds_stage"
+
+[project.entry-points."sumeds.rules"]
+FHIR = "fhir2meds:sumeds_rules.yaml"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules"
